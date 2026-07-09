@@ -2,58 +2,74 @@
 
 Todas las versiones notables.
 
-## [Unreleased] — Ola 1 (en curso)
+## [0.3.0] — 2026-07-08 — Ola 2 cerrada
 
 ### Added
-- **Monorepo npm workspaces**: `apps/web`, `apps/server`, `packages/shared`
-- **Cliente PWA**: Vite 5 + React 18 + TS 5 + Tailwind 3.4 + vite-plugin-pwa
-  - Brand colors: forge / blood / bronze / parchment / ink
-  - Dark mode por default con paleta de marca
-  - 3 tabs mobile-first: Listas / Batalla / Reglas (placeholders en Ola 1)
-  - Bottom nav con iconos Lucide
-  - Toast system
-  - UI primitives: Button (4 variants), Input, Card, Toast
-  - Auth flows: Login, Register (con better-auth client)
-  - Routing con React Router 6 (data router-ready)
-  - i18n con react-intl (es-AR + en)
-  - Service worker configurado con Workbox (precache + runtime cache)
-  - Manifest PWA con iconos maskable
-  - Script de generación de iconos desde SVG (`scripts/generate-icons.mjs`)
-  - PWA README con instrucciones de install
-- **Server**: Express 4 + TS 5 + Drizzle + better-auth + Postgres 16
-  - Endpoints: `/api/health`, `/api/auth/*` (delegado a better-auth)
-  - Drizzle schema para users/sessions/accounts/verification + placeholders lists/battles
-  - env validation con Zod
-  - CORS configurado
-  - Logger minimalista
-  - Migrate CLI
-- **Shared package** (`@dobleuno/shared`): tipos compartidos cliente ↔ server
-  - User, Auth, List, Battle, KB types
-- **Tests**:
-  - Web: 2 suites (UI primitives + smoke routes), 7 tests
-  - Server: 1 suite (health + 404), 3 tests
-- **CI**: GitHub Actions con lint + typecheck + test + build
-- **docker-compose.yml** para Postgres local
+- **Mirror de tow.whfb.app** (`scripts/mirror-tow.ts`)
+  - Respeta `robots.txt`, rate limit 2s por defecto
+  - User-Agent identificable: `Dobleuno/0.1 (+contact)`
+  - Soporta army/rule/item types + faction filter
+  - Dry-run mode + force re-download
+  - Targets preconfigurados: 30 unidades Empire, 21 unidades Bretonia, 32 reglas especiales, 18 magic items
+- **Parser HTML→JSON** (`scripts/parse-tow.ts`)
+  - Usa cheerio + Zod para validación estricta
+  - Schema versionado (v1) para Unit, SpecialRule, MagicItem
+  - 3 niveles de extracción: name + stats + weapons + special rules + options
+  - Falla loud con error claro cuando una página no matchea el schema
+- **Tests del parser** con 5 fixtures HTML sintéticos (greatswords, handgunners, knights-of-the-realm, great-weapon, talisman-of-preservation)
+- **Drizzle schema para KB** (`apps/server/src/db/schema/kb.ts`)
+  - 4 enums: faction, unit_category, rarity, rule_category
+  - 5 tablas: units, special_rules, magic_items, scenarios, ingest_log
+  - Índices en faction, category, name, rarity
+- **Endpoints de KB** en `/api`:
+  - `GET /api/rules/search?q=&faction=&category=` — busca en unidades + reglas + items
+  - `GET /api/units?faction=&category=` — lista unidades
+  - `GET /api/units/:id` — unidad específica
+  - `GET /api/rules` — lista reglas especiales
+  - `GET /api/items?rarity=` — lista magic items
+  - `GET /api/kb/stats` — stats de la KB
+- **Cache local Dexie** (`apps/web/src/lib/dexie-kb.ts`)
+  - Schema v2: units, rules, items, faqs, syncMeta
+  - TTL 24h, refresh on online
+- **KB sync** (`apps/web/src/lib/kb-sync.ts`)
+  - Online → server, cachea en Dexie
+  - Offline → cache local con filtro por TTL
+  - Fallback graceful en errores de red
+- **UI Reglas tab** con búsqueda real:
+  - Input con icono
+  - Filtros por facción (Todas / Imperio / Bretonia)
+  - 3 secciones: Unidades / Reglas / Items
+  - Cards para cada tipo (UnitCard con stats, RuleCard, MagicItemCard con rarity colors)
+  - Indicador de "cache" cuando los datos vienen de Dexie
+  - Banner offline cuando no hay red
+- **Input component** ahora soporta `startIcon`
 - **Documentación**:
-  - `docs/arch/SISTEMA.md` (arquitectura)
-  - `docs/Sources.md` (atribución a tow.whfb.app + GW)
-  - `README.md` completo
-- **Tailwind config** con paleta brand custom
-- **vite-plugin-pwa** con cache strategies
+  - `data/README.md` — explica la pipeline mirror→parse→ingest
+  - `scripts/parser/__tests__/fixtures/*.html` — fixtures sintéticos para tests
+  - `data/raw/.gitignore`, `data/processed/.gitignore`
 
 ### Changed
-- Migrado de npm standalone a npm workspaces (monorepo)
-- App estructura reorganizada en `apps/web` + `apps/server` + `packages/shared`
+- `Reglas` route: de placeholder a implementación real con búsqueda y cache offline
+- `Input` component: agregada prop `startIcon` con positioning relativo
 
-### Notes
-- El prompt v0.1 (Ola 0.5) se preserva en `apps/server/src/prompts/`
-- Tests del prompt siguen pasando (37 estáticos + 11 live gated on DEEPSEEK_API_KEY)
-- PWA deshabilitado en dev (HMR sin SW)
-- Auth verification email deshabilitado en MVP (sin SMTP)
+### Fixed
+- `CachedUnit` interface ya no extiende directamente `KBUnit` (conflicto en `source` field), usa campo separado `cachedFrom`
+- `searchKB` retorna `fromCache: boolean` para que la UI muestre el indicador
+
+### Tests
+- **60 tests** (37 prompt static + 3 server + 8 web + 12 parser)
+- **11 live** en skip (requieren `DEEPSEEK_API_KEY`)
+- Lint 0 errors, 0 warnings
+- Typecheck verde en los 3 workspaces
+- Bundle web: ~115KB gzipped (creció ~2KB por las nuevas features)
+
+## [0.2.0] — 2026-07-08 — Ola 1 cerrada
+
+(Ver CHANGELOG anterior; monorepo + PWA + auth)
 
 ## [0.1.0] — 2026-07-08 — Ola 0.5 cerrada
 
-(Ver CHANGELOG anterior; prompt v0.1 con DeepSeek, 10/10 preguntas pasan)
+(Ver CHANGELOG anterior; prompt v0.1 con DeepSeek)
 
 ## [0.0.0] — 2026-07-08
 

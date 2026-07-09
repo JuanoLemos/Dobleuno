@@ -8,6 +8,7 @@ import { env } from './env.js';
 import { log } from './lib/logger.js';
 import { healthRouter } from './routes/health.js';
 import { authRouter } from './routes/auth.js';
+import { rulesRouter } from './routes/rules.js';
 
 export function createApp(): Express {
   const app = express();
@@ -33,6 +34,7 @@ export function createApp(): Express {
   // Rutas
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api', rulesRouter);
 
   // 404
   app.use((_req, res) => {

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { screen } from '@testing-library/dom';
 import { IntlProvider } from 'react-intl';
@@ -9,6 +9,16 @@ import { Listas } from '../routes/Listas.js';
 import { Batalla } from '../routes/Batalla.js';
 import { Reglas } from '../routes/Reglas.js';
 import esAR from '../i18n/es-AR.json';
+
+// Mock kb-sync para evitar llamadas de red en los tests
+vi.mock('../lib/kb-sync.js', () => ({
+  searchKB: vi.fn().mockResolvedValue({
+    units: [],
+    rules: [],
+    items: [],
+    fromCache: true,
+  }),
+}));
 
 function wrap(ui: React.ReactNode) {
   return render(

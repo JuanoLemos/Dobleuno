@@ -34,5 +34,6 @@
   "batalla.title": "Mis batallas",
   "reglas.empty": "Buscá una regla o una unidad.",
   "reglas.search.placeholder": "carga a través de bosque",
-  "reglas.title": "Reglamento"
+  "reglas.title": "Reglamento",
+  "unit.minSize": "Mín"
 }

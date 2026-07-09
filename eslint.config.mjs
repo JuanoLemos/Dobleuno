@@ -14,7 +14,7 @@ export default [
       'apps/web/src/i18n/*.json',
       'data/**',
       'apps/**/dist/**',
-      // Config files no necesitan lint
+      // Config files y scripts de tooling no necesitan lint
       '**/*.config.{js,mjs,cjs,ts}',
       '**/postcss.config.js',
       '**/tailwind.config.ts',
@@ -23,7 +23,11 @@ export default [
       '**/drizzle.config.ts',
       '**/eslint.config.mjs',
       '**/prettier.config.mjs',
-      '**/scripts/**/*.mjs',
+      'scripts/bump-version.js',
+      'scripts/mirror-tow.ts',
+      'scripts/parse-tow.ts',
+      'scripts/parser/**',
+      'apps/web/scripts/**',
     ],
   },
   js.configs.recommended,

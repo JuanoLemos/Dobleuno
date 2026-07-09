@@ -27,14 +27,20 @@
     "db:down": "docker compose down",
     "db:migrate": "npm run db:migrate -w @dobleuno/server",
     "version:bump": "node scripts/bump-version.js",
-    "release": "node scripts/bump-version.js && git push --follow-tags"
+    "release": "node scripts/bump-version.js && git push --follow-tags",
+    "mirror": "tsx scripts/mirror-tow.ts",
+    "parse": "tsx scripts/parse-tow.ts",
+    "kb:rebuild": "npm run mirror && npm run parse",
+    "parse:test": "vitest run"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/node": "^22.10.0",
+    "cheerio": "^1.0.0",
     "eslint": "^9.17.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.2"
   },
