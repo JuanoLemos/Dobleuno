@@ -365,11 +365,27 @@ function walkHtml(dir: string): string[] {
   return out;
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────
+// ─── Main (exportable + CLI wrapper) ───────────────────────────────────────
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
-  mkdirSync(DATA_PROCESSED, { recursive: true });
+/**
+ * Ola 7.1 — entrypoint reutilizable. Parsea el directorio `rawDir`, escribe
+ * el resultado en `outDir`. Devuelve stats. `silent=true` no imprime nada.
+ */
+export async function parseAll(
+  args: CliArgs,
+  opts: { rawDir?: string; outDir?: string; silent?: boolean } = {},
+): Promise<ParseStats> {
+  const rawDir = opts.rawDir ?? DATA_RAW;
+  const outDir = opts.outDir ?? DATA_PROCESSED;
+  const silent = opts.silent ?? false;
+  const log = (msg: string): void => {
+    if (!silent) console.log(msg);
+  };
+  const err = (msg: string): void => {
+    if (!silent) console.error(msg);
+  };
+
+  mkdirSync(outDir, { recursive: true });
 
   const stats: ParseStats = { files: 0, parsed: 0, failed: 0, errors: [] };
 
@@ -377,7 +393,7 @@ async function main(): Promise<void> {
   if (!args.type || args.type === 'army' || args.type === 'all') {
     const factions = args.faction && args.faction !== 'all' ? [args.faction] : ['empire', 'bretonnia'];
     for (const faction of factions) {
-      const dir = join(DATA_RAW, 'army', faction);
+      const dir = join(rawDir, 'army', faction);
       const files = walkHtml(dir);
       const units: ParsedUnit[] = [];
       for (const file of files) {
@@ -388,20 +404,20 @@ async function main(): Promise<void> {
           const unit = parseUnit(html, faction as 'empire' | 'bretonnia', slug);
           units.push(unit);
           stats.parsed++;
-        } catch (err) {
+        } catch (e) {
           stats.failed++;
-          stats.errors.push({ file, error: (err as Error).message });
+          stats.errors.push({ file, error: (e as Error).message });
         }
       }
-      const outPath = join(DATA_PROCESSED, `units-${faction}.json`);
+      const outPath = join(outDir, `units-${faction}.json`);
       writeFileSync(outPath, JSON.stringify(units, null, 2), 'utf-8');
-      console.log(`[parse] army/${faction}: ${units.length} units → ${outPath.replace(ROOT, '')}`);
+      log(`[parse] army/${faction}: ${units.length} units → ${outPath.replace(ROOT, '')}`);
     }
   }
 
   // Special rules
   if (!args.type || args.type === 'rule' || args.type === 'all') {
-    const dir = join(DATA_RAW, 'rule', 'empire');
+    const dir = join(rawDir, 'rule', 'empire');
     const files = walkHtml(dir);
     const rules: ParsedSpecialRule[] = [];
     for (const file of files) {
@@ -411,19 +427,19 @@ async function main(): Promise<void> {
         const slug = basename(file, '.html');
         rules.push(parseSpecialRule(html, slug));
         stats.parsed++;
-      } catch (err) {
+      } catch (e) {
         stats.failed++;
-        stats.errors.push({ file, error: (err as Error).message });
+        stats.errors.push({ file, error: (e as Error).message });
       }
     }
-    const outPath = join(DATA_PROCESSED, 'special-rules.json');
+    const outPath = join(outDir, 'special-rules.json');
     writeFileSync(outPath, JSON.stringify(rules, null, 2), 'utf-8');
-    console.log(`[parse] rules: ${rules.length} → ${outPath.replace(ROOT, '')}`);
+    log(`[parse] rules: ${rules.length} → ${outPath.replace(ROOT, '')}`);
   }
 
   // Magic items
   if (!args.type || args.type === 'item' || args.type === 'all') {
-    const dir = join(DATA_RAW, 'item', 'empire');
+    const dir = join(rawDir, 'item', 'empire');
     const files = walkHtml(dir);
     const items: ParsedMagicItem[] = [];
     for (const file of files) {
@@ -433,29 +449,40 @@ async function main(): Promise<void> {
         const slug = basename(file, '.html');
         items.push(parseMagicItem(html, slug));
         stats.parsed++;
-      } catch (err) {
+      } catch (e) {
         stats.failed++;
-        stats.errors.push({ file, error: (err as Error).message });
+        stats.errors.push({ file, error: (e as Error).message });
       }
     }
-    const outPath = join(DATA_PROCESSED, 'magic-items.json');
+    const outPath = join(outDir, 'magic-items.json');
     writeFileSync(outPath, JSON.stringify(items, null, 2), 'utf-8');
-    console.log(`[parse] items: ${items.length} → ${outPath.replace(ROOT, '')}`);
+    log(`[parse] items: ${items.length} → ${outPath.replace(ROOT, '')}`);
   }
 
-  console.log(`\n[parse] Done. ${stats.parsed}/${stats.files} OK, ${stats.failed} failed.`);
+  log(`\n[parse] Done. ${stats.parsed}/${stats.files} OK, ${stats.failed} failed.`);
   if (stats.failed > 0 && args.strict) {
     for (const e of stats.errors.slice(0, 5)) {
-      console.error(`  [fail] ${e.file}: ${e.error}`);
+      err(`  [fail] ${e.file}: ${e.error}`);
     }
     if (stats.errors.length > 5) {
-      console.error(`  ... y ${stats.errors.length - 5} más`);
+      err(`  ... y ${stats.errors.length - 5} más`);
     }
+  }
+  return stats;
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  const stats = await parseAll(args);
+  if (stats.failed > 0 && args.strict) {
     process.exit(1);
   }
 }
 
-main().catch((err) => {
-  console.error('Error fatal:', err);
-  process.exit(1);
-});
+const isMain = import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/')}`;
+if (isMain) {
+  main().catch((err) => {
+    console.error('Error fatal:', err);
+    process.exit(1);
+  });
+}

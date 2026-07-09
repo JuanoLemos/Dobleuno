@@ -29,6 +29,19 @@ const EnvSchema = z.object({
 
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+
+  /**
+   * Ola 7.1 — Lista de emails administradores, comma-separated.
+   * Al boot, promote-admin.ts marca is_admin=true para estos users.
+   * Vacío por default en dev; configurar antes de deploy a prod.
+   */
+  ADMIN_EMAILS: z.string().default(''),
+
+  /**
+   * Ola 7.1 — Donde el sync KB persiste mirror + parse output.
+   * Default: `<repo-root>/data/` (resuelto via import.meta.url, no depende de cwd).
+   */
+  KB_DATA_DIR: z.string().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

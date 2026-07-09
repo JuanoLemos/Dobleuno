@@ -5,6 +5,7 @@
 import { env } from './env.js';
 import { createApp } from './app.js';
 import { log } from './lib/logger.js';
+import { ensureAdmins } from './scripts/promote-admin.js';
 
 const app = createApp();
 
@@ -13,6 +14,11 @@ const server = app.listen(env.PORT, () => {
     env: env.NODE_ENV,
     logLevel: env.LOG_LEVEL,
   });
+});
+
+// Ola 7.1 — Promover admins por env var (no bloquea el arranque).
+ensureAdmins().catch((err) => {
+  log.error('ensureAdmins failed', { error: (err as Error).message });
 });
 
 // Graceful shutdown

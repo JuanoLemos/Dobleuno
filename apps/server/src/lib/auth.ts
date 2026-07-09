@@ -27,6 +27,17 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     requireEmailVerification: false, // MVP: lo desactivamos, lo activamos cuando haya SMTP
   },
+  user: {
+    // Ola 7.1 — exponer is_admin en la sesión que retorna /api/auth/get-session.
+    additionalFields: {
+      isAdmin: {
+        type: 'boolean',
+        required: false,
+        defaultValue: false,
+        input: false, // no se puede setear desde signup; solo el server lo marca
+      },
+    },
+  },
   session: {
     expiresIn: 60 * 60 * 24 * 30, // 30 días
     updateAge: 60 * 60 * 24, // 1 día

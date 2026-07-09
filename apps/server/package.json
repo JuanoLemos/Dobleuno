@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "runner": "tsx src/prompts/runner.ts",
     "prompts:eval": "tsx src/prompts/runner.ts --eval",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "tsx ../../node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "kb:seed": "tsx src/seed-kb-chunks.ts",
     "pgvector:install": "psql $DATABASE_URL -f src/db/migrations/0001_pgvector.sql"

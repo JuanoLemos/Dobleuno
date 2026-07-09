@@ -252,8 +252,9 @@ async function mirrorOne(
   target: MirrorTarget,
   args: CliArgs,
   robots: RobotsRule,
+  outDir: string = DATA_RAW,
 ): Promise<{ status: 'ok' | 'skip' | 'fail'; bytes?: number; error?: string }> {
-  const outPath = join(DATA_RAW, target.type, target.faction, `${target.slug}.html`);
+  const outPath = join(outDir, target.type, target.faction, `${target.slug}.html`);
 
   if (!args.force && existsSync(outPath)) {
     return { status: 'skip' };
@@ -283,21 +284,38 @@ async function mirrorOne(
   }
 }
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+/**
+ * Ola 7.1 — entrypoint reutilizable. Devuelve stats estructurados para que el
+ * server (y el pipeline de sync) puedan consumir el resultado.
+ * Si `silent=true`, no imprime nada (default en uso programático).
+ */
+export async function mirrorAll(
+  args: CliArgs,
+  opts: { dataDir?: string; silent?: boolean } = {},
+): Promise<MirrorStats> {
+  const dataDir = opts.dataDir ?? DATA_RAW;
+  const silent = opts.silent ?? false;
+  const log = (msg: string): void => {
+    if (!silent) console.log(msg);
+  };
+  const err = (msg: string): void => {
+    if (!silent) console.error(msg);
+  };
+
   const targets = buildTargets(args);
 
-  console.log(`[mirror] Base URL: ${TOW_BASE_URL}`);
-  console.log(`[mirror] Rate limit: ${args.rateLimit}ms entre requests`);
-  console.log(`[mirror] User-Agent: ${USER_AGENT}`);
-  console.log(`[mirror] Dry run: ${args.dryRun}`);
-  console.log(`[mirror] Targets: ${targets.length}`);
+  log(`[mirror] Base URL: ${TOW_BASE_URL}`);
+  log(`[mirror] Rate limit: ${args.rateLimit}ms entre requests`);
+  log(`[mirror] User-Agent: ${USER_AGENT}`);
+  log(`[mirror] Dry run: ${args.dryRun}`);
+  log(`[mirror] Targets: ${targets.length}`);
+  log(`[mirror] Output dir: ${dataDir}`);
   if (args.dryRun) {
     for (const t of targets.slice(0, 20)) {
-      console.log(`  [dry-run] ${t.type}/${t.faction}/${t.slug} → ${t.url}`);
+      log(`  [dry-run] ${t.type}/${t.faction}/${t.slug} → ${t.url}`);
     }
-    if (targets.length > 20) console.log(`  ... y ${targets.length - 20} más`);
-    return;
+    if (targets.length > 20) log(`  ... y ${targets.length - 20} más`);
+    return { attempted: targets.length, downloaded: 0, skipped: 0, failed: 0, bytes: 0 };
   }
 
   const robots = await loadRobots();
@@ -306,18 +324,18 @@ async function main(): Promise<void> {
 
   for (const target of targets) {
     stats.attempted++;
-    const res = await mirrorOne(target, args, robots);
+    const res = await mirrorOne(target, args, robots, dataDir);
     if (res.status === 'ok') {
       stats.downloaded++;
       stats.bytes += res.bytes ?? 0;
       if (args.verbose) {
-        console.log(`  [ok]   ${target.type}/${target.faction}/${target.slug} (${res.bytes} B)`);
+        log(`  [ok]   ${target.type}/${target.faction}/${target.slug} (${res.bytes} B)`);
       }
     } else if (res.status === 'skip') {
       stats.skipped++;
     } else {
       stats.failed++;
-      console.error(`  [fail] ${target.type}/${target.faction}/${target.slug}: ${res.error}`);
+      err(`  [fail] ${target.type}/${target.faction}/${target.slug}: ${res.error}`);
     }
     // Rate limit
     if (stats.attempted < targets.length) {
@@ -328,18 +346,27 @@ async function main(): Promise<void> {
   const t1 = performance.now();
   const elapsed = ((t1 - t0) / 1000).toFixed(1);
 
-  console.log(`\n[mirror] Done in ${elapsed}s`);
-  console.log(`  attempted: ${stats.attempted}`);
-  console.log(`  downloaded: ${stats.downloaded}`);
-  console.log(`  skipped: ${stats.skipped} (ya existían)`);
-  console.log(`  failed: ${stats.failed}`);
-  console.log(`  bytes: ${(stats.bytes / 1024).toFixed(1)} KiB`);
+  log(`\n[mirror] Done in ${elapsed}s`);
+  log(`  attempted: ${stats.attempted}`);
+  log(`  downloaded: ${stats.downloaded}`);
+  log(`  skipped: ${stats.skipped} (ya existían)`);
+  log(`  failed: ${stats.failed}`);
+  log(`  bytes: ${(stats.bytes / 1024).toFixed(1)} KiB`);
+  return stats;
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  const stats = await mirrorAll(args);
   if (stats.failed > 0) {
     process.exit(1);
   }
 }
 
-main().catch((err) => {
-  console.error('Error fatal:', err);
-  process.exit(1);
-});
+const isMain = import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/')}`;
+if (isMain) {
+  main().catch((err) => {
+    console.error('Error fatal:', err);
+    process.exit(1);
+  });
+}

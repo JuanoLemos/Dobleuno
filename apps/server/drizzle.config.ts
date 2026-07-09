@@ -1,5 +1,5 @@
 // drizzle.config.ts — config del CLI de migraciones
-// Uso: pnpm db:generate (genera migración desde schema), pnpm db:migrate (aplica)
+// Uso: npm run db:generate (genera migración desde schema), npm run db:migrate (aplica)
 import 'dotenv/config';
 import { defineConfig } from 'drizzle-kit';
 

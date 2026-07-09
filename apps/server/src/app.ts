@@ -12,6 +12,7 @@ import { rulesRouter } from './routes/rules.js';
 import { listsRouter } from './routes/lists.js';
 import { battlesRouter } from './routes/battles.js';
 import { askRouter } from './routes/ask.js';
+import { adminKbRouter } from './routes/admin-kb.js';
 
 export function createApp(): Express {
   const app = express();
@@ -40,6 +41,7 @@ export function createApp(): Express {
   app.use('/api/lists', listsRouter);
   app.use('/api/battles', battlesRouter);
   app.use('/api/ask', askRouter);
+  app.use('/api/admin/kb', adminKbRouter);
   app.use('/api', rulesRouter);
 
   // 404

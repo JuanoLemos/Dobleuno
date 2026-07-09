@@ -14,6 +14,13 @@ export const user = pgTable('user', {
   image: text('image'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  /**
+   * Ola 7.1 — Flag de admin.
+   * Los users cuyo email matchee ADMIN_EMAILS (env var, comma-separated)
+   * son promovidos a admin automáticamente al boot del server
+   * (ver scripts/promote-admin.ts).
+   */
+  isAdmin: boolean('is_admin').notNull().default(false),
 });
 
 export const session = pgTable('session', {

@@ -1,5 +1,4 @@
 name: 'dobleuno-server'
-description: 'Dobleuno API — Express + Drizzle + RAG'
 
 services:
   postgres:
@@ -42,6 +41,16 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Ola 7.1 — emails administradores (comma-separated) y data dir
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # KB_DATA_DIR puede dejarse sin setear; dentro del contenedor apunta a /app/data
+      # que se monta como volumen nombrado abajo.
+    volumes:
+      # Ola 7.1 — Persiste el cache del mirror (HTML crudo de tow.whfb.app) y
+      # el output del parser (JSON estructurado) entre reinicios del contenedor.
+      # Sin este volumen, cada restart del container pierde el cache y el próximo
+      # sync re-descarga todo (lento y anti-rate-limit).
+      - dobleuno-kbdata:/app/data
     ports:
       - '3000:3000'
     # Si querés servir la web también desde el server, montá el dist:
@@ -51,4 +60,6 @@ services:
 
 volumes:
   dobleuno-pgdata:
+    driver: local
+  dobleuno-kbdata:
     driver: local
