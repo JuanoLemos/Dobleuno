@@ -25,7 +25,9 @@
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist .turbo",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "db:migrate": "npm run db:migrate -w @dobleuno/server"
+    "db:migrate": "npm run db:migrate -w @dobleuno/server",
+    "version:bump": "node scripts/bump-version.js",
+    "release": "node scripts/bump-version.js && git push --follow-tags"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
