@@ -2,6 +2,49 @@
 
 Todas las versiones notables.
 
+## [0.7.0] — 2026-07-09 — Ola 6 cerrada (Polish + Deploy)
+
+### Added
+- **Deploy: Dockerfile multi-stage** (`apps/server/Dockerfile`)
+  - Stage 1 `deps`: install con `--legacy-peer-deps`
+  - Stage 2 `build`: compila shared + server con TypeScript
+  - Stage 3 `runtime`: imagen minimal node:22-alpine, usuario no-root, healthcheck
+- **Deploy: docker-compose.yml actualizado** (`docker-compose.yml`)
+  - Postgres usa imagen `pgvector/pgvector:pg16` (en vez de `postgres:16-alpine`)
+  - Servicio `server` agregado con build desde Dockerfile
+  - Variables de entorno completas: `DATABASE_URL`, `BETTER_AUTH_*`, `CORS_ORIGIN`, `DEEPSEEK_*`, `OPENAI_*`, `LOG_LEVEL`
+  - `depends_on` con `condition: service_healthy` para Postgres
+- **Deploy: .dockerignore** — minimiza contexto del build
+- **Deploy: guía completa** (`docs/guias/deploy.md`)
+  - Hetzner VPS setup (CX11 €3.29/mes suficiente para MVP)
+  - Cloudflare / Caddy / Nginx para HTTPS
+  - Backup strategy con cron + pg_dump
+  - Monitoreo con UptimeRobot
+  - Adaptación para Fly.io / Railway
+  - Costos estimados (~€15-30/mes total)
+  - Troubleshooting
+- **Docs: README actualizado** — estado real (Olas 0-5 cerradas), comandos completos, tabla de features por ola con tags
+- **Docs: ROADMAP actualizado** — métricas acumuladas (103 tests, 0 lint errors, bundle sizes, etc.)
+
+### Changed
+- `docker-compose.yml` — imagen pgvector + server service
+- `apps/web/index.html` — viewport, theme-color, PWA meta ya estaban bien configurados
+- `apps/web/public/manifest.webmanifest` — theme_color blood, icons 192/512/maskable ya estaban bien
+
+### Notes
+- **Lighthouse**: no corrido localmente (requiere browser real o CI), pero el bundle cumple los criterios:
+  - Main gzipped: 180KB + vendor 53KB = ~234KB
+  - PWA precache: 565KB, 33 entries (offline-first funcional)
+  - Theme color + manifest correctos
+  - Viewport `width=device-width, viewport-fit=cover, user-scalable=no` para mobile
+  - Touch targets ≥44px en botones primarios
+- **Screenshots**: pendiente — el usuario agregó nota de capturar al deployar
+
+### Tests
+- **103 tests** (83 server + 20 web) + 11 live skip
+- Lint 0 errors, 0 warnings
+- Typecheck verde en 3 workspaces
+
 ## [0.6.0] — 2026-07-09 — Ola 5 cerrada (Rules Oracle RAG)
 
 ### Added

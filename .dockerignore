@@ -1,0 +1,25 @@
+# .dockerignore — minimiza el contexto del build de Docker
+node_modules
+**/node_modules
+**/dist
+**/.env
+**/.env.local
+data/
+**/nppBackup
+**/coverage
+**/.cache
+**/.turbo
+**/.next
+**/.vite
+**/.DS_Store
+**/.idea
+**/.vscode
+**/*.log
+**/*.tsbuildinfo
+.git
+.github
+docs
+README.md
+LICENSE.md
+.eslintcache
+.prettiercache

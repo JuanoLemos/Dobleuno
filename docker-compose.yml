@@ -1,6 +1,10 @@
+name: 'dobleuno-server'
+description: 'Dobleuno API — Express + Drizzle + RAG'
+
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector-enabled image (community-maintained, equivalente a pgvector/pgvector:pg16)
+    image: pgvector/pgvector:pg16
     container_name: dobleuno-postgres
     restart: unless-stopped
     environment:
@@ -16,6 +20,34 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: dobleuno-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgres://dobleuno:dobleuno_dev@postgres:5432/dobleuno
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-me-in-production-min-32-chars}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '3000:3000'
+    # Si querés servir la web también desde el server, montá el dist:
+    # volumes:
+    #   - ./apps/web/dist:/app/web-dist:ro
+    # y agregá app.use(express.static('/app/web-dist')) en app.ts.
 
 volumes:
   dobleuno-pgdata:

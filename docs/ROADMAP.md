@@ -1,51 +1,45 @@
 # Dobleuno — Roadmap
 
-> Roadmap vivo. Se actualiza al cerrar cada ola. Última: 2026-07-08.
+> Roadmap vivo. Se actualiza al cerrar cada ola. Última: 2026-07-09 (v0.6.0).
 
 ## Estado actual
 
-**Ola 0.5 — Prompt v1** · en curso
+**Ola 5 — Rules Oracle RAG** ✅ cerrada. **Ola 6 — Polish + Deploy** 🟡 en curso.
 
 ## Olas
 
-| # | Ola | Estado | Días planeados | Entregable |
-|---|---|---|---|---|
-| 0 | Decisiones | ✅ Cerrado | 1 | PLAN.md + decisiones locked |
-| 0.5 | **Prompt v1** | ✅ Cerrado | 1-2 | System prompt + suite de regresión con DeepSeek |
-| 1 | Foundation | 🟡 En curso | 5 | Monorepo, PWA installable, auth, dark mode brand |
-| 2 | KB local | ✅ Cerrado | 5 | Mirror tow.whfb.app + parser + búsqueda offline Empire+Bretonia |
-| 3 | List builder | ✅ Cerrado | 7 | UI lista + validación composición + save/load + export |
-| 4 | Battle tracker | ⏳ Pendiente | 7 | 6 fases + combat resolver + magic + post-game |
-| 5 | Rules oracle (RAG) | ⏳ Pendiente | 5 | Embeddings + RAG + endpoint /api/ask |
-| 6 | Polish + deploy | ⏳ Pendiente | 5 | Lighthouse ≥90 + PWA mobile + Cloudflare + Hetzner |
-| 7+ | Fase 2 | ⏳ Diferido | +3-4 sem | Historial, stats agregadas, coaching, +facciones |
+| # | Ola | Estado | Días planeados | Entregable | Tag |
+|---|---|---|---|---|---|
+| 0 | Decisiones | ✅ Cerrado | 1 | PLAN.md + decisiones locked | — |
+| 0.5 | Prompt v1 | ✅ Cerrado | 1-2 | System prompt + suite de regresión con DeepSeek | v0.1.0 |
+| 1 | Foundation | ✅ Cerrado | 5 | Monorepo, PWA installable, auth, dark mode brand | v0.2.0 |
+| 2 | KB local | ✅ Cerrado | 5 | Mirror tow.whfb.app + parser + búsqueda offline Empire+Bretonia | v0.3.0 |
+| 3 | List builder | ✅ Cerrado | 7 | UI lista + validación composición + save/load + export | v0.4.0 |
+| 4 | Battle tracker | ✅ Cerrado | 7 | 6 fases + combat resolver + post-game + Monte Carlo | v0.5.0 |
+| 5 | Rules oracle (RAG) | ✅ Cerrado | 5 | pgvector + embeddings + /api/ask + citation enforcement | v0.6.0 |
+| 6 | Polish + deploy | 🟡 En curso | 5 | Lighthouse + Dockerfile + docker-compose + deploy guide | v0.7.0 |
+| 7+ | Fase 2 | ⏳ Diferido | +3-4 sem | Historial, stats agregadas, coaching, +facciones, multiplayer | — |
 
-## Ola 0.5 — Detalle
+## Métricas acumuladas
 
-### Scope
-- ✅ Setup mínimo `apps/server/` con TS + Vitest
-- ✅ System prompt v0.1 (`apps/server/src/prompts/system.ts`)
-- ✅ Tipos compartidos (`apps/server/src/prompts/types.ts`)
-- ✅ CLI runner (`apps/server/src/prompts/runner.ts`)
-- ✅ 10 preguntas canónicas (`apps/server/src/prompts/fixtures/questions.json`)
-- ✅ Criterios de aceptación (`apps/server/src/prompts/fixtures/expected-answers.json`)
-- ✅ Suite de tests (estática + live con API key)
-- ✅ ADR-005 cerrado (DeepSeek V3/R1/V4 + OpenAI embeddings, SDK `openai`)
-- ✅ Swap Anthropic→DeepSeek aplicado (costo ~20-30x menor)
-- ✅ Mecánicas de referencia: composición, combate, magia
-- ⏳ Pendiente: ejecutar suite live con DEEPSEEK_API_KEY del usuario
-- ⏳ Pendiente: capturar resultados en `docs/qa/prompt-v0.1-results.md`
-
-### Criterio de "done"
-- [x] `tsc --noEmit` sin errores
-- [x] `npm test` (estáticos) verde · **37/37 pass**, 11 live en skip
-- [x] `npm test` (live con DEEPSEEK_API_KEY) — **10/10 pass** (confirmado por usuario)
-- [x] Cero alucinaciones detectadas en la suite
-- [ ] Latencia — **NO cumplido** para uso en partida real (~5-10s/pregunta). Arquitectura tiered (FAQs + KB + LLM) es la solución, planificada para Ola 5
+| Métrica | Valor |
+|---|---|
+| Tests | 103 (83 server + 20 web) + 11 live skip |
+| Lint errors | 0 |
+| Typecheck errors | 0 |
+| Bundle web (main gzipped) | 180KB + vendor 53KB |
+| Bundle BattleEdit (gzipped) | 3.72KB |
+| Bundle Reglas (gzipped) | 37.16KB (incluye OraclePanel) |
+| PWA precache | 565KB, 33 entries |
+| Chunks en KB seed | ~28 (9 unidades + 5 reglas básicas) |
+| Endpoints API | health + auth + lists + battles + rules + units + items + kb/stats + ask |
+| DB tables | user + session + account + verification + lists + battles + units + special_rules + magic_items + scenarios + ingest_log + kb_chunks |
 
 ## Referencias
 
 - `docs/plan/PLAN.md` — plan de alto nivel
 - `docs/plan/PLAN-OLEADAS.md` — brief por ola
-- `docs/arch/` — ADRs
+- `docs/arch/` — ADRs (incluye ADR-005 LLM provider)
 - `docs/mecanicas/` — mecánicas TOW
+- `docs/guias/deploy.md` — guía de deploy Hetzner + Cloudflare
+- `docs/SOURCES.md` — atribución tow.whfb.app
