@@ -1,0 +1,61 @@
+{
+  "version": "0.1",
+  "description": "Criterios de aceptación por pregunta. El test de regresión compara la respuesta real contra estos criterios.",
+  "criteria": {
+    "q1-movement-cover": {
+      "mustMention": ["Movement", "Cover", "carga"],
+      "mustNotMention": ["40K", "Sigmar"],
+      "expectedFormat": "veredicto + explicación + cita"
+    },
+    "q2-combat-saves": {
+      "mustMention": ["ward", "save"],
+      "mustNotMention": ["ignora ward"],
+      "expectedFormat": "veredicto + explicación + cita",
+      "expectedNumeric": ["5+"]
+    },
+    "q3-dispel-lore": {
+      "mustMention": ["dispel", "lore"],
+      "mustNotMention": ["automático"],
+      "expectedFormat": "veredicto + explicación + cita",
+      "expectedNumeric": ["2", "+2"]
+    },
+    "q4-captain-rank-bonus": {
+      "mustMention": ["Capitán", "fila"],
+      "mustNotMention": ["todas las filas"],
+      "expectedFormat": "veredicto + explicación + cita",
+      "expectedNumeric": ["+2"]
+    },
+    "q5-out-of-system": {
+      "mustMention": ["TOW", "Old World"],
+      "mustNotMention": ["overwatch funciona así"],
+      "expectedFormat": "rechazo amable",
+      "expectedRejection": true
+    },
+    "q6-not-in-kb": {
+      "mustMention": ["No tengo", "registrada"],
+      "mustNotMention": ["sí cuenta", "no cuenta"],
+      "expectedFormat": "admisión de falta de información",
+      "expectedRejection": false
+    },
+    "q7-panic-test": {
+      "mustMention": ["panic", "Ld", "8"],
+      "mustNotMention": ["no requieren"],
+      "expectedFormat": "veredicto + explicación + cita"
+    },
+    "q8-reform-after-charge": {
+      "mustMention": ["reform", "rank", "fila"],
+      "mustNotMention": ["gratis sin perder"],
+      "expectedFormat": "veredicto + explicación + cita"
+    },
+    "q9-charge-range-cavalry": {
+      "mustMention": ["14", "carga"],
+      "mustNotMention": ["12", "8"],
+      "expectedFormat": "veredicto + explicación + cita"
+    },
+    "q10-magic-item-rarity": {
+      "mustMention": ["Rare", "personaje"],
+      "mustNotMention": ["ilimitados", "2 Rare"],
+      "expectedFormat": "veredicto + explicación + cita"
+    }
+  }
+}

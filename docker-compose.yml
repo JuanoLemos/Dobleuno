@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dobleuno-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dobleuno
+      POSTGRES_PASSWORD: dobleuno_dev
+      POSTGRES_DB: dobleuno
+    ports:
+      - '5432:5432'
+    volumes:
+      - dobleuno-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dobleuno -d dobleuno']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dobleuno-pgdata:
+    driver: local

@@ -1,0 +1,42 @@
+{
+  "name": "dobleuno",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Dobleuno — companion app de mesa para Warhammer: The Old World",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm-run-all -p dev:web dev:server",
+    "dev:web": "npm run dev -w @dobleuno/web",
+    "dev:server": "npm run dev -w @dobleuno/server",
+    "build": "npm run build -w @dobleuno/web && npm run build -w @dobleuno/server",
+    "build:web": "npm run build -w @dobleuno/web",
+    "build:server": "npm run build -w @dobleuno/server",
+    "test": "npm test -ws --if-present",
+    "test:web": "npm test -w @dobleuno/web",
+    "test:server": "npm test -w @dobleuno/server",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "npm run typecheck -ws --if-present",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,html}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css,html}\"",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist .turbo",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run db:migrate -w @dobleuno/server"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.17.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+.DS_Store
+coverage/
+.vitest/
+.turbo/
+.vscode/
+.idea/
+*.tsbuildinfo
+data/raw/
+data/processed/
+nppBackup/

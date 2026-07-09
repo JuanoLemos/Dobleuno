@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-forge: #0a0a0a;
+    --color-blood: #a01919;
+    --color-bronze: #b8860b;
+    --color-parchment: #f7f5f0;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply min-h-[100dvh] bg-forge-0 text-parchment-50 font-sans;
+    overscroll-behavior-y: none;
+  }
+
+  /* Safe areas para iPhone con notch */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Scrollbar minimalista en dark */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-forge-3 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-forge-4;
+  }
+}
+
+@layer components {
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  .card-base {
+    @apply rounded-2xl border border-forge-3 bg-forge-1 p-4 shadow-soft;
+  }
+
+  .stat-tile {
+    @apply flex flex-col items-center justify-center rounded-lg border border-forge-3 bg-forge-2 p-2;
+  }
+}

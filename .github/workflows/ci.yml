@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, ola-*]
+  pull_request:
+    branches: [main, ola-*]
+
+jobs:
+  test:
+    name: Lint · Typecheck · Test · Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dobleuno
+          POSTGRES_PASSWORD: dobleuno_dev
+          POSTGRES_DB: dobleuno
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://dobleuno:dobleuno_dev@localhost:5432/dobleuno
+      BETTER_AUTH_SECRET: ci-test-secret-min-32-chars-for-ci-only
+      BETTER_AUTH_URL: http://localhost:3000
+      CORS_ORIGIN: http://localhost:5173
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY || 'sk-test-mock' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate web icons
+        run: npm run icons:generate -w @dobleuno/web
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Server tests
+        run: npm test -w @dobleuno/server
+
+      - name: Web tests
+        run: npm test -w @dobleuno/web
+
+      - name: Server build
+        run: npm run build:server
+
+      - name: Web build
+        run: npm run build:web
+
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist/
+          retention-days: 7

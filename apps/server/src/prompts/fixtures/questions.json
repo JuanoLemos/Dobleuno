@@ -1,0 +1,96 @@
+{
+  "version": "0.1",
+  "description": "Set canónico de preguntas para la suite de regresión del prompt v0.1",
+  "questions": [
+    {
+      "id": "q1-movement-cover",
+      "category": "movement",
+      "expectedType": "answerable",
+      "question": "¿Puedo declarar carga si hay un bosque entre mi unidad y el enemigo?",
+      "expectedKeyTerms": ["Movement", "Cover", "carga"],
+      "expectedCitationSources": ["regulation", "tow_whfb"],
+      "expectedConfidence": "high"
+    },
+    {
+      "id": "q2-combat-saves",
+      "category": "combat",
+      "expectedType": "answerable",
+      "question": "Mi Greatsword (S4, AP-1, great weapon) carga a un Bretonnian Knight (T4, 1+ armor, shield, barding, 5+ ward por Talisman). ¿Cuál es mi save efectiva contra él?",
+      "expectedKeyTerms": ["ward", "armor", "save"],
+      "expectedCitationSources": ["regulation", "tow_whfb"],
+      "expectedConfidence": "high"
+    },
+    {
+      "id": "q3-dispel-lore",
+      "category": "magic",
+      "expectedType": "answerable",
+      "question": "Tengo 3DD para dispel y +2 por lore matching, ¿llego a despelar un hechizo nivel 4?",
+      "expectedKeyTerms": ["dispel", "lore"],
+      "expectedCitationSources": ["regulation", "tow_whfb"],
+      "expectedConfidence": "high"
+    },
+    {
+      "id": "q4-captain-rank-bonus",
+      "category": "command",
+      "expectedType": "answerable",
+      "question": "¿El Capitán de Infantería del Imperio da +1 al ataque por cada fila adicional hasta un máximo de +2?",
+      "expectedKeyTerms": ["Capitán", "fila"],
+      "expectedCitationSources": ["regulation", "tow_whfb", "faq"],
+      "expectedConfidence": "high"
+    },
+    {
+      "id": "q5-out-of-system",
+      "category": "off-topic",
+      "expectedType": "rejection",
+      "question": "¿Cómo funciona el overwatch en 40K?",
+      "expectedKeyTerms": ["TOW", "Old World"],
+      "expectedCitationSources": [],
+      "expectedConfidence": "rejected"
+    },
+    {
+      "id": "q6-not-in-kb",
+      "category": "edge-case",
+      "expectedType": "not-in-kb",
+      "question": "¿El Steam Tank cuenta como war machine para efectos de las Inner Circle Knights?",
+      "expectedKeyTerms": ["No tengo", "registrada"],
+      "expectedCitationSources": [],
+      "expectedConfidence": "low"
+    },
+    {
+      "id": "q7-panic-test",
+      "category": "psychology",
+      "expectedType": "answerable",
+      "question": "Una unidad aliada huyó a 8\" de mis Goblins. ¿Tienen que hacer panic test?",
+      "expectedKeyTerms": ["panic", "Leadership", "Ld"],
+      "expectedCitationSources": ["regulation", "tow_whfb"],
+      "expectedConfidence": "high"
+    },
+    {
+      "id": "q8-reform-after-charge",
+      "category": "movement",
+      "expectedType": "answerable",
+      "question": "Mi unidad de infantería de 25 modelos perdió el combate y necesita reformar. ¿Puedo mantener 4 filas completas o tengo que reducir modelos?",
+      "expectedKeyTerms": ["reform", "fila", "rank"],
+      "expectedCitationSources": ["regulation", "tow_whfb"],
+      "expectedConfidence": "high"
+    },
+    {
+      "id": "q9-charge-range-cavalry",
+      "category": "movement",
+      "expectedType": "answerable",
+      "question": "¿Cuál es la distancia de carga de una unidad de caballería bretoniana?",
+      "expectedKeyTerms": ["14", "carga", "caball"],
+      "expectedCitationSources": ["regulation", "tow_whfb"],
+      "expectedConfidence": "high"
+    },
+    {
+      "id": "q10-magic-item-rarity",
+      "category": "army-list",
+      "expectedType": "answerable",
+      "question": "¿Cuántos ítems mágicos de rareza Rare puedo darle a un único personaje?",
+      "expectedKeyTerms": ["Rare", "item", "personaje"],
+      "expectedCitationSources": ["regulation", "tow_whfb"],
+      "expectedConfidence": "high"
+    }
+  ]
+}
