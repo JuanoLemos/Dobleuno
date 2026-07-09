@@ -55,19 +55,3 @@ export const verification = pgTable('verification', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
-
-/**
- * Tabla de batallas — placeholder para Ola 4.
- */
-export const battles = pgTable('battles', {
-  id: text('id').primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  status: text('status').notNull().default('setup'), // setup | deployment | in-progress | finished
-  data: text('data').notNull(), // JSON serializado de BattleState
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  finishedAt: timestamp('finished_at'),
-});

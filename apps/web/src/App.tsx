@@ -11,6 +11,9 @@ const ListaEdit = lazy(() =>
   import('./routes/ListaEdit.js').then((m) => ({ default: m.ListaEdit })),
 );
 const Batalla = lazy(() => import('./routes/Batalla.js').then((m) => ({ default: m.Batalla })));
+const BattleEdit = lazy(() =>
+  import('./routes/BattleEdit.js').then((m) => ({ default: m.BattleEdit })),
+);
 const Reglas = lazy(() => import('./routes/Reglas.js').then((m) => ({ default: m.Reglas })));
 const Login = lazy(() => import('./routes/auth/Login.js').then((m) => ({ default: m.Login })));
 const Register = lazy(() =>
@@ -83,6 +86,22 @@ export default function App() {
             element={
               <Suspense fallback={<Loading />}>
                 <Batalla />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/batalla/nueva"
+            element={
+              <Suspense fallback={<Loading />}>
+                <BattleEdit />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/batalla/:id"
+            element={
+              <Suspense fallback={<Loading />}>
+                <BattleEdit />
               </Suspense>
             }
           />

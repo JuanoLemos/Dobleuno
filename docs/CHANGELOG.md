@@ -2,6 +2,53 @@
 
 Todas las versiones notables.
 
+## [0.5.0] — 2026-07-09 — Ola 4 cerrada (Battle Tracker)
+
+### Added
+- **Server: tabla `battles`** (`apps/server/src/db/schema/battles.ts`) — schema propio
+  - `id`, `userId`, `name`, `status`, `data` (jsonb con BattleState), timestamps
+  - FK a `user` con cascade delete
+  - Índices por user y status
+- **Server: CRUD `/api/battles`** (`apps/server/src/routes/battles.ts`)
+  - `GET /api/battles` — lista resumida (id, name, status, turn, phase, updatedAt)
+  - `POST /api/battles` — crea con validación Zod (`playerListId` requerido)
+  - `GET /api/battles/:id` — trae battle completo
+  - `PATCH /api/battles/:id` — actualiza state parcial (merge con state existente)
+  - `DELETE /api/battles/:id` — elimina
+  - Al crear con `playerListId`, hidrata automáticamente los units desde la lista
+- **Server: combat-math** (`apps/server/src/lib/combat-math.ts`)
+  - `simulateCombat()` — Monte Carlo con wound table TOW (S vs T), to-hit (ws), saves
+  - `computeBattleStats()` — agregados desde units + log
+- **Server: 7 tests combat-math + 8 tests battles router** — schema validation sin DB, probabilidad de victoria, wound table, save notation
+- **Cliente: battle-engine** (`apps/web/src/lib/battle-engine.ts`)
+  - `PHASES`, `PHASE_LABELS`, `PHASE_DESCRIPTIONS` para las 6 fases TOW
+  - `STATUS_LABELS` para los 9 unit status
+  - `nextPhase()`, `isLastPhaseOfTurn()`, `isFirstPhaseOfTurn()`
+  - `makeLog()` — helper para crear log entries con UUID + ISO timestamp
+- **Cliente: PhaseBar** (`apps/web/src/components/batalla/PhaseBar.tsx`) — barra de navegación de fases con indicador visual (▶ / ✓ / ○) y número de turno
+- **Cliente: UnitStateCard** (`apps/web/src/components/batalla/UnitStateCard.tsx`) — card de unidad con HP, status, woundsTaken, activeEffects
+- **Cliente: BattleEdit route** (`apps/web/src/routes/BattleEdit.tsx`)
+  - Setup panel con selección de lista + nombre + resumen rival
+  - Tracker con phase bar, model counts, unit cards, advance phase, end battle
+  - Post-game con resultado (victoria/derrota/empate)
+- **Cliente: Batalla route refactored** (`apps/web/src/routes/Batalla.tsx`) — lista + CTA nueva batalla
+- **Cliente: routes**:
+  - `/batalla/nueva` — nueva batalla
+  - `/batalla/:id` — tracker / setup
+- **Cliente: 9 tests battle-engine** — phase state machine, log helper, statuses
+
+### Changed
+- `apps/web/src/App.tsx` — agregadas rutas `/batalla/nueva` y `/batalla/:id`
+- `apps/server/src/db/schema/index.ts` — export de `battles`
+- `apps/server/src/db/schema/users.ts` — removido placeholder de `battles` (ahora en `battles.ts`)
+- Validación: handlers validan body con Zod **antes** de checkear DB → 400 antes que 503
+
+### Tests
+- **79 tests** (62 server + 17 web) + 11 live skip
+- Lint 0 errors, 0 warnings
+- Typecheck verde en 3 workspaces (server, web, shared)
+- Build web OK — bundle main 180KB gz + vendor 53KB gz + BattleEdit 3.83KB gz
+
 ## [0.4.0] — 2026-07-08 — Ola 3 cerrada
 
 ### Added
