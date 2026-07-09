@@ -74,3 +74,14 @@ export interface KBFAQ {
   category: 'movement' | 'combat' | 'magic' | 'psychology' | 'list' | 'rules';
   tags: string[];
 }
+
+/**
+ * Citation — chunk de KB referenciado en una respuesta del oracle RAG.
+ * Lo que el LLM "citó" en su respuesta con el formato [cita:N].
+ */
+export interface Citation {
+  ref: string;
+  title: string;
+  text: string; // preview (200 chars máx)
+  source: 'unit' | 'rule' | 'item' | 'scenario' | 'faq';
+}

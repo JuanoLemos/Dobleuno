@@ -9,6 +9,7 @@ import { useUIStore } from '../lib/store.js';
 import { UnitCard } from '../components/reglas/UnitCard.js';
 import { RuleCard } from '../components/reglas/RuleCard.js';
 import { MagicItemCard } from '../components/reglas/MagicItemCard.js';
+import { OraclePanel } from '../components/reglas/OraclePanel.js';
 
 export function Reglas() {
   const [query, setQuery] = useState('');
@@ -63,6 +64,8 @@ export function Reglas() {
         onChange={(e) => setQuery(e.target.value)}
         startIcon={<SearchIcon size={16} />}
       />
+
+      <OraclePanel faction={faction} />
 
       <div className="flex gap-2 text-xs">
         <button

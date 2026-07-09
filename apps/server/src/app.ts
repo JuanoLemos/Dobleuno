@@ -11,6 +11,7 @@ import { authRouter } from './routes/auth.js';
 import { rulesRouter } from './routes/rules.js';
 import { listsRouter } from './routes/lists.js';
 import { battlesRouter } from './routes/battles.js';
+import { askRouter } from './routes/ask.js';
 
 export function createApp(): Express {
   const app = express();
@@ -38,6 +39,7 @@ export function createApp(): Express {
   app.use('/api/auth', authRouter);
   app.use('/api/lists', listsRouter);
   app.use('/api/battles', battlesRouter);
+  app.use('/api/ask', askRouter);
   app.use('/api', rulesRouter);
 
   // 404

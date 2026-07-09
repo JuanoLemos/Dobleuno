@@ -2,6 +2,8 @@
  * Schema de Knowledge Base de TOW.
  * Almacena unidades, items mágicos, reglas especiales, scenarios.
  * Datos parseados desde tow.whfb.app (Ola 2).
+ *
+ * Ola 5: agrega tabla `kb_chunks` para RAG (pgvector embeddings).
  */
 
 import { pgTable, text, integer, timestamp, jsonb, index, pgEnum } from 'drizzle-orm/pg-core';
@@ -159,6 +161,49 @@ export const ingestLog = pgTable('ingest_log', {
   errorMessage: text('error_message'),
 });
 
+// ─── KB chunks (Ola 5 — RAG embeddings via pgvector) ──────────────────────
+
+export const chunkSourceEnum = pgEnum('chunk_source', [
+  'unit',
+  'rule',
+  'item',
+  'scenario',
+  'faq',
+]);
+
+/**
+ * Cada chunk es un "pedazo" de texto de la KB con su embedding vectorial.
+ * El embedding se almacena como `vector(384)` (pgvector). Por defecto usamos
+ * 384 dimensiones porque es lo que devuelven modelos locales tipo
+ * sentence-transformers/all-MiniLM-L6-v2. Si en producción se usa OpenAI
+ * text-embedding-3-small (1536) o text-embedding-3-large (3072), ajustar
+ * la dimensión y la columna.
+ *
+ * IMPORTANTE: requiere `CREATE EXTENSION IF NOT EXISTS vector;` (ver migration).
+ * Para correr local sin pgvector, el schema funciona pero el endpoint /api/ask
+ * devuelve 503 con mensaje explicativo.
+ */
+export const kbChunks = pgTable(
+  'kb_chunks',
+  {
+    id: text('id').primaryKey(), // ej: 'chunk-empire-greatswords-rules'
+    source: chunkSourceEnum('source').notNull(),
+    ref: text('ref').notNull(), // FK lógico: unit.ref, rule.id, item.id, etc.
+    title: text('title').notNull(),
+    text: text('text').notNull(),
+    faction: text('faction'), // 'empire' | 'bretonnia' | null = genérico
+    embedding: text('embedding').notNull(), // JSON-serialized number[] (384 dims)
+    // Postgres pgvector column se agrega via migration SQL custom (no Drizzle nativo)
+    // Ver apps/server/src/db/migrations/<n>_pgvector.sql
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => ({
+    sourceIdx: index('kb_chunks_source_idx').on(t.source),
+    refIdx: index('kb_chunks_ref_idx').on(t.ref),
+    factionIdx: index('kb_chunks_faction_idx').on(t.faction),
+  }),
+);
+
 // ─── Type exports ─────────────────────────────────────────────────────────
 
 export type Unit = typeof units.$inferSelect;
@@ -167,3 +212,5 @@ export type SpecialRule = typeof specialRules.$inferSelect;
 export type MagicItem = typeof magicItems.$inferSelect;
 export type Scenario = typeof scenarios.$inferSelect;
 export type IngestLog = typeof ingestLog.$inferSelect;
+export type KBChunk = typeof kbChunks.$inferSelect;
+export type NewKBChunk = typeof kbChunks.$inferInsert;

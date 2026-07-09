@@ -2,6 +2,69 @@
 
 Todas las versiones notables.
 
+## [0.6.0] — 2026-07-09 — Ola 5 cerrada (Rules Oracle RAG)
+
+### Added
+- **Server: tabla `kb_chunks`** (`apps/server/src/db/schema/kb.ts`)
+  - Schema con `id`, `source` (unit/rule/item/scenario/faq), `ref`, `title`, `text`, `faction`, `embedding` (jsonb), `createdAt`
+  - Índices por source, ref, faction
+- **Server: pgvector extension migration** (`apps/server/src/db/migrations/0001_pgvector.sql`)
+  - `CREATE EXTENSION IF NOT EXISTS vector;`
+  - Columna `embedding_vec vector(384)` sincronizada vía trigger desde el jsonb
+  - Índice ivfflat con cosine ops para búsqueda rápida
+- **Server: embeddings provider** (`apps/server/src/lib/embeddings.ts`)
+  - Interfaz `EmbeddingProvider` swappable
+  - **DeterministicEmbeddingProvider** (fallback dev/test, hash-based 384-dim, sin API)
+  - **OpenAIEmbeddingProvider** (producción, `text-embedding-3-small`, 1536-dim)
+  - Auto-selección según `OPENAI_API_KEY` env var
+  - Vector normalization (L2 norm = 1) para cosine = dot product
+  - Helper `cosineSimilarity()`
+- **Server: LLM helper** (`apps/server/src/lib/llm-helper.ts`)
+  - `callLLM()` con fallback mock determinístico si no hay `DEEPSEEK_API_KEY`
+  - Mock cita `[cita:1]` para testear pipeline end-to-end sin API
+- **Server: RAG pipeline** (`apps/server/src/lib/rag.ts`)
+  - `ask()` — flujo completo: embed query → retrieve top-K → build prompt → LLM → validate citations
+  - `extractCitations()` — regex `[cita:N]` con validación contra chunks reales
+  - `retrieveChunks()` — pgvector cosine distance, fallback ILIKE si pgvector no disponible
+  - Truncation de citation text a 200 chars + ellipsis
+- **Server: ruta `POST /api/ask`** (`apps/server/src/routes/ask.ts`)
+  - Body: `{ question, faction?, limit? }` (limit 1-10, default 5)
+  - Respuesta: `{ answer, citations, chunksUsed, provider, fallback }`
+- **Server: seed script** (`apps/server/src/seed-kb-chunks.ts`)
+  - `npm run kb:seed -w @dobleuno/server` popula `kb_chunks` desde `SEED_UNITS` + 5 reglas básicas
+- **Server: 21 tests nuevos** (9 embeddings + 7 rag + 5 ask endpoint)
+- **Cliente: Citation type** (`packages/shared/src/types/rule.ts`)
+- **Cliente: askApi** (`apps/web/src/lib/ask-api.ts`)
+- **Cliente: AskBox** (`apps/web/src/components/reglas/AskBox.tsx`)
+  - Textarea + submit con loading state + error handling
+  - Reporta pregunta + respuesta al callback
+- **Cliente: CitationList** (`apps/web/src/components/reglas/CitationList.tsx`)
+  - Cards con iconos por source (unit/rule/item/scenario/faq)
+  - Preview truncado a 200 chars
+- **Cliente: OraclePanel** (`apps/web/src/components/reglas/OraclePanel.tsx`)
+  - Une AskBox + respuesta + CitationList
+  - Metadata: chunks used, provider, fallback mode
+- **Cliente: integración en Reglas tab** — OraclePanel visible arriba del listado
+- **Cliente: 3 tests CitationList**
+
+### Changed
+- `apps/server/src/app.ts` — montado `/api/ask`
+- `apps/server/src/env.ts` — `OPENAI_API_KEY` + `OPENAI_EMBEDDING_MODEL` ya estaban
+- `apps/server/package.json` — agregados scripts `kb:seed` y `pgvector:install`
+- `apps/web/src/routes/Reglas.tsx` — OraclePanel visible junto al search
+
+### Tests
+- **103 tests** (83 server + 20 web) + 11 live skip
+- Lint 0 errors, 0 warnings
+- Typecheck verde en 3 workspaces
+- Build web OK — bundle Reglas 110KB gz (+5KB por el oracle), precache 565KB
+
+### Notas de despliegue
+- Para usar embeddings reales: configurar `OPENAI_API_KEY` en `.env`
+- Si el Postgres local no tiene pgvector, el endpoint funciona con fallback text-search (menos preciso)
+- Para pgvector full: `psql $DATABASE_URL -f apps/server/src/db/migrations/0001_pgvector.sql`
+- Seed inicial: `npm run kb:seed -w @dobleuno/server`
+
 ## [0.5.0] — 2026-07-09 — Ola 4 cerrada (Battle Tracker)
 
 ### Added

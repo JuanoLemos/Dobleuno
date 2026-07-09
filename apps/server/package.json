@@ -1,6 +1,6 @@
 {
   "name": "@dobleuno/server",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,9 @@
     "runner": "tsx src/prompts/runner.ts",
     "prompts:eval": "tsx src/prompts/runner.ts --eval",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "kb:seed": "tsx src/seed-kb-chunks.ts",
+    "pgvector:install": "psql $DATABASE_URL -f src/db/migrations/0001_pgvector.sql"
   },
   "dependencies": {
     "@dobleuno/shared": "*",
