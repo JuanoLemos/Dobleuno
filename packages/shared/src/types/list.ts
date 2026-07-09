@@ -13,9 +13,10 @@ export interface MagicItem {
 }
 
 export interface UnitOption {
-  id: string;
+  id?: string;
   name: string;
   points: number;
+  description?: string;
 }
 
 export interface ListUnit {

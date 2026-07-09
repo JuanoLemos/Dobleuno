@@ -4,7 +4,7 @@
  * Ola 1: solo el mínimo para que el signup/login funcione.
  */
 
-import { pgTable, text, timestamp, boolean, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -52,22 +52,6 @@ export const verification = pgTable('verification', {
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-/**
- * Tabla de listas — placeholder para Ola 3.
- */
-export const lists = pgTable('lists', {
-  id: text('id').primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  faction: text('faction').notNull(), // 'empire' | 'bretonnia'
-  totalPoints: integer('total_points').notNull().default(0),
-  data: text('data').notNull(), // JSON serializado de ListUnit[]
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

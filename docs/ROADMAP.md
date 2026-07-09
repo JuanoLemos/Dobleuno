@@ -14,7 +14,7 @@
 | 0.5 | **Prompt v1** | ✅ Cerrado | 1-2 | System prompt + suite de regresión con DeepSeek |
 | 1 | Foundation | 🟡 En curso | 5 | Monorepo, PWA installable, auth, dark mode brand |
 | 2 | KB local | ✅ Cerrado | 5 | Mirror tow.whfb.app + parser + búsqueda offline Empire+Bretonia |
-| 3 | List builder | ⏳ Pendiente | 7 | UI lista + validación composición + save/load + export |
+| 3 | List builder | ✅ Cerrado | 7 | UI lista + validación composición + save/load + export |
 | 4 | Battle tracker | ⏳ Pendiente | 7 | 6 fases + combat resolver + magic + post-game |
 | 5 | Rules oracle (RAG) | ⏳ Pendiente | 5 | Embeddings + RAG + endpoint /api/ask |
 | 6 | Polish + deploy | ⏳ Pendiente | 5 | Lighthouse ≥90 + PWA mobile + Cloudflare + Hetzner |

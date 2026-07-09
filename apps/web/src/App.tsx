@@ -7,6 +7,9 @@ import { AuthLayout } from './routes/AuthLayout.js';
 import { Toast } from './components/ui/Toast.js';
 
 const Listas = lazy(() => import('./routes/Listas.js').then((m) => ({ default: m.Listas })));
+const ListaEdit = lazy(() =>
+  import('./routes/ListaEdit.js').then((m) => ({ default: m.ListaEdit })),
+);
 const Batalla = lazy(() => import('./routes/Batalla.js').then((m) => ({ default: m.Batalla })));
 const Reglas = lazy(() => import('./routes/Reglas.js').then((m) => ({ default: m.Reglas })));
 const Login = lazy(() => import('./routes/auth/Login.js').then((m) => ({ default: m.Login })));
@@ -56,6 +59,22 @@ export default function App() {
             element={
               <Suspense fallback={<Loading />}>
                 <Listas />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/listas/nueva"
+            element={
+              <Suspense fallback={<Loading />}>
+                <ListaEdit />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/listas/:id"
+            element={
+              <Suspense fallback={<Loading />}>
+                <ListaEdit />
               </Suspense>
             }
           />

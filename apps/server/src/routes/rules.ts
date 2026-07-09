@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { db, isDbHealthy } from '../db/client.js';
 import { units, specialRules, magicItems } from '../db/schema/kb.js';
 import { log } from '../lib/logger.js';
+import { SEED_UNITS } from '../lib/seed-units.js';
 
 export const rulesRouter: Router = Router();
 
@@ -102,7 +103,7 @@ rulesRouter.get('/search', async (req, res) => {
 
 /**
  * GET /api/units?faction=empire&category=core
- * Lista unidades con filtros básicos.
+ * Lista unidades. Si la DB no tiene unidades, usa el SEED (Ola 2 no corrió todavía).
  */
 const UnitsListSchema = z.object({
   faction: z.enum(['empire', 'bretonnia']).optional(),
@@ -116,48 +117,60 @@ rulesRouter.get('/units', async (req, res) => {
     res.status(400).json({ error: 'Bad request', details: parsed.error.flatten() });
     return;
   }
-  if (!(await isDbHealthy())) {
-    res.status(503).json({ error: 'Database not available' });
-    return;
+
+  // 1) Try DB
+  const dbHealthy = await isDbHealthy();
+  if (dbHealthy) {
+    const conditions = [];
+    if (parsed.data.faction) conditions.push(eq(units.faction, parsed.data.faction));
+    if (parsed.data.category) conditions.push(eq(units.category, parsed.data.category));
+    try {
+      const rows = await db
+        .select()
+        .from(units)
+        .where(conditions.length > 0 ? or(...conditions) : undefined)
+        .limit(parsed.data.limit);
+      if (rows.length > 0) {
+        res.json({ count: rows.length, units: rows, source: 'db' });
+        return;
+      }
+    } catch (err) {
+      log.warn('DB units fetch failed, using seed', { error: (err as Error).message });
+    }
   }
 
-  const conditions = [];
-  if (parsed.data.faction) conditions.push(eq(units.faction, parsed.data.faction));
-  if (parsed.data.category) conditions.push(eq(units.category, parsed.data.category));
-
-  try {
-    const rows = await db
-      .select()
-      .from(units)
-      .where(conditions.length > 0 ? or(...conditions) : undefined)
-      .limit(parsed.data.limit);
-    res.json({ count: rows.length, units: rows });
-  } catch (err) {
-    log.error('Units list failed', { error: (err as Error).message });
-    res.status(500).json({ error: 'Failed to list units' });
-  }
+  // 2) Fallback to seed
+  const seed = SEED_UNITS.filter(
+    (u) =>
+      (!parsed.data.faction || u.faction === parsed.data.faction) &&
+      (!parsed.data.category || u.category === parsed.data.category),
+  ).slice(0, parsed.data.limit);
+  res.json({ count: seed.length, units: seed, source: 'seed' });
 });
 
 /**
  * GET /api/units/:id
- * Trae una unidad específica por id.
  */
 rulesRouter.get('/units/:id', async (req, res) => {
-  if (!(await isDbHealthy())) {
-    res.status(503).json({ error: 'Database not available' });
+  // Try DB first
+  if (await isDbHealthy()) {
+    try {
+      const rows = await db.select().from(units).where(eq(units.id, req.params.id)).limit(1);
+      if (rows.length > 0) {
+        res.json(rows[0]);
+        return;
+      }
+    } catch {
+      // fall through
+    }
+  }
+  // Fallback to seed
+  const seed = SEED_UNITS.find((u) => u.id === req.params.id);
+  if (!seed) {
+    res.status(404).json({ error: 'Unit not found' });
     return;
   }
-  try {
-    const rows = await db.select().from(units).where(eq(units.id, req.params.id)).limit(1);
-    if (rows.length === 0) {
-      res.status(404).json({ error: 'Unit not found' });
-      return;
-    }
-    res.json(rows[0]);
-  } catch (err) {
-    log.error('Unit fetch failed', { error: (err as Error).message });
-    res.status(500).json({ error: 'Failed to fetch unit' });
-  }
+  res.json(seed);
 });
 
 /**
