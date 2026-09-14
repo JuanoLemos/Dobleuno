@@ -8,16 +8,26 @@
  * `/api/kb/stats`. Eran 404 desde la Ola 2 y nadie se enteró, porque no había
  * un solo test que tocara estas rutas.
  *
- * El truco para testear esto sin Postgres: una ruta que existe responde 503
- * ("Database not available") y una que no existe responde 404. O sea que el
- * 503 es la prueba de que el path matcheó — que es exactamente lo que se
- * rompió. Los datos se prueban con la base levantada, aparte.
+ * ── Cómo se distingue "la ruta no existe" de "no hay esa fila" ───────────
+ *
+ * No por el status: los dos son 404. La primera versión de este archivo
+ * afirmaba `status !== 404` y pasaba en local (sin base, todo responde 503)
+ * pero fallaba en CI, donde hay Postgres migrado y vacío: pedir
+ * `/api/rules/great-weapon` matchea la ruta y devuelve 404 con toda razón.
+ *
+ * Lo que sí los separa es el cuerpo. El fallback de `app.ts` responde
+ * `{ error: 'Not found' }`; los handlers del Codex responden 'Rule not found',
+ * 'Item not found', 'Unit not found'. Un 404 genérico es la firma de la ruta
+ * que no está montada, y es exactamente lo que este archivo vigila.
  */
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.js';
 
-describe('Codex — las rutas existen', () => {
+/** Lo que devuelve `app.ts` cuando ningún router matcheó. */
+const NO_MATCHEO = 'Not found';
+
+describe('Codex — las rutas están montadas', () => {
   const app = createApp();
 
   const rutas = [
@@ -34,17 +44,18 @@ describe('Codex — las rutas existen', () => {
   ];
 
   for (const ruta of rutas) {
-    it(`GET ${ruta} matchea (no 404)`, async () => {
+    it(`GET ${ruta} matchea un handler`, async () => {
       const res = await request(app).get(ruta);
-      expect(res.status).not.toBe(404);
-      // Sin DB en el runner, la respuesta esperada es 503.
-      expect([200, 503]).toContain(res.status);
+      // Sin base: 503. Con base migrada: 200, o 404 del handler si no hay fila.
+      expect([200, 404, 503]).toContain(res.status);
+      expect((res.body as { error?: string }).error).not.toBe(NO_MATCHEO);
     });
   }
 
-  it('una ruta inventada sí da 404 — el chequeo de arriba distingue algo', async () => {
+  it('una ruta inventada sí cae en el fallback — el chequeo de arriba distingue algo', async () => {
     const res = await request(app).get('/api/reglas-que-no-existen');
     expect(res.status).toBe(404);
+    expect(res.body).toHaveProperty('error', NO_MATCHEO);
   });
 });
 
@@ -65,5 +76,6 @@ describe('Codex — validación de query params', () => {
   it('acepta los filtros del Codex', async () => {
     const res = await request(app).get('/api/items?type=Weapon&family=arcane-items&q=fuego');
     expect([200, 503]).toContain(res.status);
+    expect((res.body as { error?: string }).error).not.toBe(NO_MATCHEO);
   });
 });
