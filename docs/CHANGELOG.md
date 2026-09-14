@@ -4,6 +4,12 @@ Todas las versiones notables.
 
 ## [Unreleased]
 
+_Nada sin versionar todavía._
+
+---
+
+## [1.0.1] — 2026-09-14
+
 ### Fixed
 - **El retrieval del oráculo nunca devolvía chunks** (`lib/rag.ts`). Las dos ramas cerraban con `Array.isArray(rows)`, pero drizzle/node-postgres resuelve `db.execute()` con un QueryResult, no con un array. El oráculo contestaba "no tengo información suficiente" al 100% de las preguntas desde Ola 5. Helper `toRows()` acepta las dos formas.
 - **Los live tests de DeepSeek no se salteaban en CI** (`prompts/__tests__/system.test.ts`). El guard miraba solo si `DEEPSEEK_API_KEY` existía, y el workflow define `sk-test-mock` como fallback: los 10 tests salían a la API real y volvían 401. Es la razón por la que el CI estuvo rojo desde Ola 2.
@@ -22,7 +28,6 @@ Todas las versiones notables.
 - Workspace movido a `Desktop/Dobleuno/` (antes anidado en el fork `OldWorld/`). D1 revisada en PLAN y PLAN-OLEADAS.
 - El seed son 23 chunks, no ~28 (ROADMAP).
 
----
 
 ## [1.0.0] — 2026-09-13 — Olas 8 y 9 cerradas (Home del club + Mesas)
 
