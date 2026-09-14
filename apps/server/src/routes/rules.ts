@@ -11,14 +11,15 @@ import { z } from 'zod';
 import { db, isDbHealthy } from '../db/client.js';
 import { units, specialRules, magicItems } from '../db/schema/kb.js';
 import { log } from '../lib/logger.js';
-import { SEED_UNITS } from '../lib/seed-units.js';
 
 export const rulesRouter: Router = Router();
 
 const SearchSchema = z.object({
   q: z.string().optional(),
-  faction: z.enum(['empire', 'bretonnia']).optional(),
-  category: z.enum(['lord', 'hero', 'core', 'special', 'rare']).optional(),
+  /** Ejército: 'empire-of-man', 'kingdom-of-bretonnia', … */
+  army: z.string().max(60).optional(),
+  /** Categoría tal como la publica el sitio: 'Character', 'Core', … */
+  category: z.string().max(40).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
@@ -33,7 +34,7 @@ rulesRouter.get('/search', async (req, res) => {
     return;
   }
 
-  const { q, faction, category, limit } = parsed.data;
+  const { q, army, category, limit } = parsed.data;
 
   if (!(await isDbHealthy())) {
     res.status(503).json({
@@ -54,8 +55,8 @@ rulesRouter.get('/search', async (req, res) => {
     if (!category || ['lord', 'hero', 'core', 'special', 'rare'].includes(category)) {
       const unitConditions = [];
       if (q) unitConditions.push(ilike(units.name, `%${q}%`));
-      if (faction) unitConditions.push(eq(units.faction, faction));
-      if (category) unitConditions.push(eq(units.category, category));
+      if (army) unitConditions.push(eq(units.army, army));
+      if (category) unitConditions.push(eq(units.unitCategory, category));
       results.units = await db
         .select()
         .from(units)
@@ -86,7 +87,7 @@ rulesRouter.get('/search', async (req, res) => {
     }
 
     res.json({
-      query: { q, faction, category, limit },
+      query: { q, army, category, limit },
       counts: {
         units: results.units.length,
         rules: results.rules.length,
@@ -102,12 +103,16 @@ rulesRouter.get('/search', async (req, res) => {
 });
 
 /**
- * GET /api/units?faction=empire&category=core
- * Lista unidades. Si la DB no tiene unidades, usa el SEED (Ola 2 no corrió todavía).
+ * GET /api/units?army=empire-of-man&category=Core
+ *
+ * Hasta la Ola 11 este endpoint caía a un SEED de 9 unidades hardcodeadas
+ * cuando la DB no respondía, porque las tablas del Codex nunca se poblaban. Con
+ * el corpus real cargado, ese fallback devolvía un shape distinto al de la DB
+ * para el mismo endpoint. Ahora, sin base, 503 como el resto de la API.
  */
 const UnitsListSchema = z.object({
-  faction: z.enum(['empire', 'bretonnia']).optional(),
-  category: z.enum(['lord', 'hero', 'core', 'special', 'rare']).optional(),
+  army: z.string().max(60).optional(),
+  category: z.string().max(40).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
@@ -118,59 +123,45 @@ rulesRouter.get('/units', async (req, res) => {
     return;
   }
 
-  // 1) Try DB
-  const dbHealthy = await isDbHealthy();
-  if (dbHealthy) {
-    const conditions = [];
-    if (parsed.data.faction) conditions.push(eq(units.faction, parsed.data.faction));
-    if (parsed.data.category) conditions.push(eq(units.category, parsed.data.category));
-    try {
-      const rows = await db
-        .select()
-        .from(units)
-        .where(conditions.length > 0 ? or(...conditions) : undefined)
-        .limit(parsed.data.limit);
-      if (rows.length > 0) {
-        res.json({ count: rows.length, units: rows, source: 'db' });
-        return;
-      }
-    } catch (err) {
-      log.warn('DB units fetch failed, using seed', { error: (err as Error).message });
-    }
-  }
-
-  // 2) Fallback to seed
-  const seed = SEED_UNITS.filter(
-    (u) =>
-      (!parsed.data.faction || u.faction === parsed.data.faction) &&
-      (!parsed.data.category || u.category === parsed.data.category),
-  ).slice(0, parsed.data.limit);
-  res.json({ count: seed.length, units: seed, source: 'seed' });
-});
-
-/**
- * GET /api/units/:id
- */
-rulesRouter.get('/units/:id', async (req, res) => {
-  // Try DB first
-  if (await isDbHealthy()) {
-    try {
-      const rows = await db.select().from(units).where(eq(units.id, req.params.id)).limit(1);
-      if (rows.length > 0) {
-        res.json(rows[0]);
-        return;
-      }
-    } catch {
-      // fall through
-    }
-  }
-  // Fallback to seed
-  const seed = SEED_UNITS.find((u) => u.id === req.params.id);
-  if (!seed) {
-    res.status(404).json({ error: 'Unit not found' });
+  if (!(await isDbHealthy())) {
+    res.status(503).json({ error: 'Database not available' });
     return;
   }
-  res.json(seed);
+
+  const conditions = [];
+  if (parsed.data.army) conditions.push(eq(units.army, parsed.data.army));
+  if (parsed.data.category) conditions.push(eq(units.unitCategory, parsed.data.category));
+
+  try {
+    const rows = await db
+      .select()
+      .from(units)
+      .where(conditions.length > 0 ? or(...conditions) : undefined)
+      .limit(parsed.data.limit);
+    res.json({ count: rows.length, units: rows });
+  } catch (err) {
+    log.error('Units list failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to list units' });
+  }
+});
+
+/** GET /api/units/:id */
+rulesRouter.get('/units/:id', async (req, res) => {
+  if (!(await isDbHealthy())) {
+    res.status(503).json({ error: 'Database not available' });
+    return;
+  }
+  try {
+    const rows = await db.select().from(units).where(eq(units.id, req.params.id)).limit(1);
+    if (rows.length === 0) {
+      res.status(404).json({ error: 'Unit not found' });
+      return;
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    log.error('Unit fetch failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to fetch unit' });
+  }
 });
 
 /**
@@ -196,7 +187,7 @@ rulesRouter.get('/rules', async (_req, res) => {
  * Lista magic items.
  */
 const ItemsListSchema = z.object({
-  rarity: z.enum(['common', 'uncommon', 'rare', 'very-rare']).optional(),
+  type: z.string().max(40).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
@@ -212,7 +203,7 @@ rulesRouter.get('/items', async (req, res) => {
   }
   try {
     const conditions = [];
-    if (parsed.data.rarity) conditions.push(eq(magicItems.rarity, parsed.data.rarity));
+    if (parsed.data.type) conditions.push(eq(magicItems.type, parsed.data.type));
     const rows = await db
       .select()
       .from(magicItems)

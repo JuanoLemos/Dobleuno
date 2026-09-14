@@ -4,31 +4,22 @@
  * Datos parseados desde tow.whfb.app (Ola 2).
  *
  * Ola 5: agrega tabla `kb_chunks` para RAG (pgvector embeddings).
+ *
+ * Ola 11: la taxonomía pasa a texto libre. El esquema original asumía 2
+ * facciones, 5 categorías de unidad, 8 de regla y 4 rarezas, escrito antes de
+ * ver los datos. El corpus real de tow.whfb.app tiene 19 ejércitos, 32
+ * secciones de reglamento y 70 familias de item, y los statlines usan "-",
+ * "(+1)" y "2D6", que no entran en un integer. Forzar ese mapeo fue lo que
+ * hizo que las 39 reglas del mirror viejo cayeran todas en 'equipment'.
+ *
+ * Los valores vienen del sitio; si una vista necesita agrupar más grueso, que
+ * lo haga con un mapeo explícito y visible, no con un enum en la DB.
  */
 
 import { pgTable, text, integer, timestamp, jsonb, index, pgEnum } from 'drizzle-orm/pg-core';
 
 // ─── Enums ────────────────────────────────────────────────────────────────
 
-export const factionEnum = pgEnum('faction', ['empire', 'bretonnia']);
-export const unitCategoryEnum = pgEnum('unit_category', [
-  'lord',
-  'hero',
-  'core',
-  'special',
-  'rare',
-]);
-export const rarityEnum = pgEnum('rarity', ['common', 'uncommon', 'rare', 'very-rare']);
-export const ruleCategoryEnum = pgEnum('rule_category', [
-  'combat',
-  'shooting',
-  'magic',
-  'movement',
-  'leadership',
-  'equipment',
-  'armour',
-  'psychology',
-]);
 export const ingestStatusEnum = pgEnum('ingest_status', ['pending', 'running', 'completed', 'failed']);
 
 // ─── Units ────────────────────────────────────────────────────────────────
@@ -36,60 +27,46 @@ export const ingestStatusEnum = pgEnum('ingest_status', ['pending', 'running', '
 export const units = pgTable(
   'units',
   {
-    id: text('id').primaryKey(), // ej: 'empire-greatswords'
-    faction: factionEnum('faction').notNull(),
-    category: unitCategoryEnum('category').notNull(),
+    /** ej: 'unit-greatswords'. */
+    id: text('id').primaryKey(),
+    slug: text('slug').notNull(),
     name: text('name').notNull(),
-    // Stats
-    m: integer('m').notNull(),
-    ws: integer('ws').notNull(),
-    bs: integer('bs').notNull(),
-    s: integer('s').notNull(),
-    t: integer('t').notNull(),
-    w: integer('w').notNull(),
-    i: integer('i').notNull(),
-    a: integer('a').notNull(),
-    ld: integer('ld').notNull(),
-    sv: text('sv').notNull(), // ej: '3+'
-    // Estructura
-    minSize: integer('min_size').notNull().default(1),
-    maxSize: integer('max_size'),
-    pointsPerModel: integer('points_per_model'),
-    pointsFixed: integer('points_fixed'),
-    commandGroup: jsonb('command_group').$type<{
-      champion?: number;
-      standard?: number;
-      musician?: number;
-    }>(),
-    weapons: jsonb('weapons')
-      .$type<
-        Array<{
-          name: string;
-          range: string;
-          strength: number;
-          armorPenetration: number;
-          rules: string[];
-        }>
-      >()
-      .notNull()
-      .default([]),
-    specialRules: text('special_rules').array().notNull().default([]),
-    options: jsonb('options')
-      .$type<Array<{ name: string; points: number; description?: string }>>()
-      .notNull()
-      .default([]),
-    // Source
+    nameSingular: text('name_singular').notNull().default(''),
+    /** Ejército: 'empire-of-man', 'kingdom-of-bretonnia', … (19 en el corpus). */
+    army: text('army').notNull().default(''),
+    /** Publicaciones y ejércitos a los que pertenece. */
+    associations: text('associations').array().notNull().default([]),
+    /** 'Character', 'Core', 'Special', 'Rare', … tal como lo publica el sitio. */
+    unitCategory: text('unit_category').notNull().default(''),
+    troopTypes: text('troop_types').array().notNull().default([]),
+    /**
+     * Statlines. Array porque una entrada puede traer varios perfiles (jinete
+     * y montura). Los valores son string: el sitio usa '-', '(+1)', '2D6'.
+     */
+    profile: jsonb('profile').$type<Array<Record<string, string>>>().notNull().default([]),
+    baseSize: text('base_size').notNull().default(''),
+    unitSize: text('unit_size').notNull().default(''),
+    /** Costo en puntos. null = el sitio no declara uno. */
+    cost: integer('cost'),
+    /** ej: '+120 points'. */
+    costOverride: text('cost_override').notNull().default(''),
+    armourValue: text('armour_value').notNull().default(''),
+    /** Bloques en texto plano, tal como los publica el sitio. */
+    equipment: text('equipment').notNull().default(''),
+    specialRules: text('special_rules').notNull().default(''),
+    options: text('options').notNull().default(''),
     sourcePage: text('source_page').notNull(),
+    sourceUrl: text('source_url').notNull().default(''),
     lastVerified: timestamp('last_verified').notNull().defaultNow(),
-    // Full-text search
-    searchText: text('search_text'), // para tsvector
+    searchText: text('search_text'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (t) => ({
-    factionIdx: index('units_faction_idx').on(t.faction),
-    categoryIdx: index('units_category_idx').on(t.category),
+    armyIdx: index('units_army_idx').on(t.army),
+    categoryIdx: index('units_category_idx').on(t.unitCategory),
     nameIdx: index('units_name_idx').on(t.name),
+    slugIdx: index('units_slug_idx').on(t.slug),
   }),
 );
 
@@ -98,18 +75,26 @@ export const units = pgTable(
 export const specialRules = pgTable(
   'special_rules',
   {
-    id: text('id').primaryKey(), // ej: 'rule-great-weapon'
+    /** ej: 'rule-great-weapon'. */
+    id: text('id').primaryKey(),
+    slug: text('slug').notNull(),
     name: text('name').notNull(),
     description: text('description').notNull(),
-    category: ruleCategoryEnum('category').notNull(),
+    /** Sección del reglamento: 'special-rules', 'the-combat-phase', … (32). */
+    ruleType: text('rule_type').notNull().default(''),
+    associations: text('associations').array().notNull().default([]),
+    /** Slugs de reglas relacionadas, para navegación cruzada. */
+    related: text('related').array().notNull().default([]),
     sourcePage: text('source_page').notNull(),
+    sourceUrl: text('source_url').notNull().default(''),
     lastVerified: timestamp('last_verified').notNull().defaultNow(),
     searchText: text('search_text'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => ({
     nameIdx: index('rules_name_idx').on(t.name),
-    categoryIdx: index('rules_category_idx').on(t.category),
+    typeIdx: index('rules_type_idx').on(t.ruleType),
+    slugIdx: index('rules_slug_idx').on(t.slug),
   }),
 );
 
@@ -118,21 +103,28 @@ export const specialRules = pgTable(
 export const magicItems = pgTable(
   'magic_items',
   {
-    id: text('id').primaryKey(), // ej: 'item-talisman-of-preservation'
+    /** ej: 'item-talisman-of-preservation'. */
+    id: text('id').primaryKey(),
+    slug: text('slug').notNull(),
     name: text('name').notNull(),
-    rarity: rarityEnum('rarity').notNull(),
-    points: integer('points').notNull().default(0),
+    /** Clasificación del sitio: 'Ability', 'Weapon', … */
+    type: text('type').notNull().default(''),
+    /** Costo en puntos. */
+    cost: integer('cost').notNull().default(0),
     description: text('description').notNull(),
-    factionRestriction: text('faction_restriction').array().notNull().default([]),
-    characterRestriction: text('character_restriction').array().notNull().default([]),
+    /** Familias: 'arcane-items', 'armour-runes', … (70 en el corpus). */
+    itemTypes: text('item_types').array().notNull().default([]),
+    associations: text('associations').array().notNull().default([]),
     sourcePage: text('source_page').notNull(),
+    sourceUrl: text('source_url').notNull().default(''),
     lastVerified: timestamp('last_verified').notNull().defaultNow(),
     searchText: text('search_text'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => ({
     nameIdx: index('items_name_idx').on(t.name),
-    rarityIdx: index('items_rarity_idx').on(t.rarity),
+    typeIdx: index('items_type_idx').on(t.type),
+    slugIdx: index('items_slug_idx').on(t.slug),
   }),
 );
 

@@ -36,6 +36,20 @@
       "when": 1789359241193,
       "tag": "0004_melted_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789397381993,
+      "tag": "0005_drop_kb_tablas_viejas",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789397394049,
+      "tag": "0006_codex_taxonomia_libre",
+      "breakpoints": true
     }
   ]
 }
