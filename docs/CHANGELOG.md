@@ -2,6 +2,30 @@
 
 Todas las versiones notables.
 
+## [Unreleased]
+
+Cambios posteriores al tag v1.0.0, sin versionar todavía.
+
+### Fixed
+- **El retrieval del oráculo nunca devolvía chunks** (`lib/rag.ts`). Las dos ramas cerraban con `Array.isArray(rows)`, pero drizzle/node-postgres resuelve `db.execute()` con un QueryResult, no con un array. El oráculo contestaba "no tengo información suficiente" al 100% de las preguntas desde Ola 5. Helper `toRows()` acepta las dos formas.
+- **Los live tests de DeepSeek no se salteaban en CI** (`prompts/__tests__/system.test.ts`). El guard miraba solo si `DEEPSEEK_API_KEY` existía, y el workflow define `sk-test-mock` como fallback: los 10 tests salían a la API real y volvían 401. Es la razón por la que el CI estuvo rojo desde Ola 2.
+
+### Changed
+- **Borrado el fallback ILIKE del retrieval** (`lib/rag.ts`). Armaba términos a partir de los números del vector, así que devolvía filas arbitrarias. Sin pgvector el oráculo ahora no responde, en vez de citar contexto casual. El tipo de `fallback` queda en `'pgvector' | 'none'`, alineado en `web/src/lib/ask-api.ts`.
+
+### Added
+- **Tests del oráculo** (`__tests__/rag-oracle.test.ts`, 11 tests) con `openai` y `db.execute` mockeados: corren sin red, sin créditos y sin Docker. Cubren armado del prompt, validación de citas, caminos sin contexto y errores del LLM.
+
+### CI
+- Migraciones de Drizzle + extension pgvector + seed de la KB antes de los tests. Antes el runner levantaba Postgres pero nunca lo migraba: los tests pasaban por el camino degradado sin ejercitar nada contra base.
+- Imagen `pgvector/pgvector:pg16`, igual que docker-compose.
+
+### Docs
+- Workspace movido a `Desktop/Dobleuno/` (antes anidado en el fork `OldWorld/`). D1 revisada en PLAN y PLAN-OLEADAS.
+- El seed son 23 chunks, no ~28 (ROADMAP).
+
+---
+
 ## [1.0.0] — 2026-09-13 — Olas 8 y 9 cerradas (Home del club + Mesas)
 
 > Release que cierra trabajo que quedó en el árbol sin commitear desde el 2026-07-10.
