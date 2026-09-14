@@ -35,3 +35,22 @@ export async function isDbHealthy(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Las filas de un `db.execute()`, venga como venga.
+ *
+ * drizzle/node-postgres lo resuelve con un QueryResult
+ * ({ rows, rowCount, command, fields }), no con un array. Otros drivers sí
+ * devuelven el array directo, así que se aceptan las dos formas.
+ *
+ * Vive acá y no adentro de rag.ts porque el error que previene es fácil de
+ * repetir: un `Array.isArray()` sobre el QueryResult da false siempre, y el
+ * síntoma es una consulta que "no devuelve nada" sin fallar. Pasó una vez en
+ * el retrieval del oráculo —contestaba "no tengo información suficiente" a
+ * todo— y otra en el seed, escribiendo este mismo comentario.
+ */
+export function toRows(res: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(res)) return res as Array<Record<string, unknown>>;
+  const rows = (res as { rows?: unknown } | null)?.rows;
+  return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
+}

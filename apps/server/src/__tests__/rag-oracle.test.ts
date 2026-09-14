@@ -13,6 +13,8 @@
  */
 import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 
+import type * as dbClient from '../db/client.js';
+
 const { createCompletion, dbExecute, dbHealthy } = vi.hoisted(() => ({
   createCompletion: vi.fn(),
   dbExecute: vi.fn(),
@@ -25,7 +27,10 @@ vi.mock('openai', () => ({
   },
 }));
 
-vi.mock('../db/client.js', () => ({
+vi.mock('../db/client.js', async (original) => ({
+  // `toRows` se usa tal cual: es una función pura que normaliza la forma del
+  // QueryResult, y mockearla sería mockear justamente lo que se quiere probar.
+  ...(await original<typeof dbClient>()),
   db: { execute: dbExecute },
   isDbHealthy: dbHealthy,
   pool: { query: vi.fn() },

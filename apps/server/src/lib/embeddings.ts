@@ -101,17 +101,46 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
 
 let cachedProvider: EmbeddingProvider | null = null;
 
-/** Singleton lazy: solo crea el provider cuando se necesita. */
+/**
+ * Singleton lazy: solo crea el provider cuando se necesita.
+ *
+ * ── El guard de dimensiones (Ola 12) ─────────────────────────────────────
+ *
+ * Elegía OpenAI con sólo que `OPENAI_API_KEY` existiera, sin mirar nada más.
+ * Ese provider devuelve 1536 dimensiones y la columna `embedding_vec` es
+ * `vector(384)`. La cadena completa:
+ *
+ *   key puesta → el seed genera 3700 vectores de 1536 → el trigger de pgvector
+ *   no puede castearlos → la excepción se degrada a WARNING → las 3700 filas
+ *   quedan con embedding_vec NULL → el retrieval filtra IS NOT NULL y matchea
+ *   cero → el oráculo contesta "no tengo información suficiente" a todo.
+ *
+ * El seed sale con exit 0, `count(*)` da 3700 y el health devuelve 200. Nada
+ * en el sistema dice que el oráculo está muerto. Por eso acá se tira en vez de
+ * avisar: un provider con dimensiones incompatibles no es una degradación, es
+ * corrupción silenciosa de los datos.
+ */
 export function getEmbeddingProvider(): EmbeddingProvider {
   if (cachedProvider) return cachedProvider;
   const apiKey = process.env.OPENAI_API_KEY;
   if (apiKey) {
+    // Tipado por la interfaz a propósito: con el tipo concreto, `dims` es el
+    // literal 1536 y TypeScript marca la comparación como imposible. El guard
+    // igual tiene que existir en runtime — es el contrato del provider contra
+    // la columna, no una constante contra otra.
+    const provider: EmbeddingProvider = new OpenAIEmbeddingProvider(apiKey);
+    if (provider.dims !== EMBEDDING_DIMS) {
+      throw new Error(
+        `El provider de embeddings devuelve ${provider.dims} dimensiones y la columna ` +
+          `embedding_vec es vector(${EMBEDDING_DIMS}). Con esta configuración el seed ` +
+          'deja los vectores en NULL y el oráculo deja de encontrar nada, sin errores ' +
+          'visibles. Sacá OPENAI_API_KEY, o migrá la columna y re-embeddeá el corpus.',
+      );
+    }
     log.info('Embeddings provider: openai');
-    cachedProvider = new OpenAIEmbeddingProvider(apiKey);
+    cachedProvider = provider;
   } else {
-    log.warn(
-      'Embeddings provider: deterministic (no OPENAI_API_KEY). Solo para dev/test. En producción configurar OPENAI_API_KEY.',
-    );
+    log.info(`Embeddings provider: deterministic (${EMBEDDING_DIMS} dims)`);
     cachedProvider = new DeterministicEmbeddingProvider();
   }
   return cachedProvider;

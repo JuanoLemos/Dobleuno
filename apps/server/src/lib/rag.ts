@@ -14,7 +14,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { db, isDbHealthy } from '../db/client.js';
+import { db, isDbHealthy, toRows } from '../db/client.js';
 import { type KBChunk } from '../db/schema/kb.js';
 import { getEmbeddingProvider, cosineSimilarity, EMBEDDING_DIMS } from './embeddings.js';
 import { callLLM } from './llm-helper.js';
@@ -100,21 +100,6 @@ interface RetrieveInput {
   faction?: string;
   limit: number;
   expectedDims: number;
-}
-
-/**
- * drizzle/node-postgres resuelve `db.execute()` con un QueryResult
- * ({ rows, rowCount, command, fields }), no con un array. Otros drivers sí
- * devuelven el array directo, así que aceptamos las dos formas.
- *
- * Sin esto el `Array.isArray()` de abajo daba false siempre, las dos ramas del
- * retrieval devolvían [] y el oráculo contestaba "no tengo información
- * suficiente" a todo, tuviera lo que tuviera la KB.
- */
-function toRows(res: unknown): Array<Record<string, unknown>> {
-  if (Array.isArray(res)) return res as Array<Record<string, unknown>>;
-  const rows = (res as { rows?: unknown } | null)?.rows;
-  return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
 }
 
 async function retrieveChunks(input: RetrieveInput): Promise<KBChunk[]> {

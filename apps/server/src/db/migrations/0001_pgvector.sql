@@ -20,18 +20,39 @@ CREATE EXTENSION IF NOT EXISTS vector;
 ALTER TABLE kb_chunks
   ADD COLUMN IF NOT EXISTS embedding_vec vector(384);
 
+-- Ola 12 — Este trigger ya NO se traga el error.
+--
+-- Tenía un `EXCEPTION WHEN OTHERS` que degradaba cualquier fallo a
+-- RAISE WARNING, con el comentario "si el JSON está malformado, dejar la
+-- columna anterior". La intención era tolerar un JSON roto; el efecto real era
+-- tolerar un corpus entero sin vectorizar.
+--
+-- Con OPENAI_API_KEY seteada el provider devuelve 1536 dimensiones contra una
+-- columna vector(384): las 3700 filas entraban con embedding_vec en NULL, el
+-- retrieval filtraba IS NOT NULL, matcheaba cero, y el oráculo contestaba "no
+-- tengo información suficiente" a todo. El seed salía con exit 0 y la tabla
+-- mostraba 3700 filas. Un WARNING en el log de Postgres no lo lee nadie.
+--
+-- Ahora el insert falla con un mensaje que dice qué hacer.
 CREATE OR REPLACE FUNCTION sync_kb_chunks_embedding()
 RETURNS TRIGGER AS $$
+DECLARE
+  dims integer;
 BEGIN
-  BEGIN
-    NEW.embedding_vec := (
-      SELECT array_agg(x::float8)::vector(384)
-      FROM jsonb_array_elements_text(NEW.embedding::jsonb) AS x
-    );
-  EXCEPTION WHEN OTHERS THEN
-    -- Si el JSON está malformado, dejar la columna anterior
-    RAISE WARNING 'No se pudo parsear embedding para chunk %: %', NEW.id, SQLERRM;
-  END;
+  SELECT count(*) INTO dims FROM jsonb_array_elements_text(NEW.embedding::jsonb);
+
+  IF dims <> 384 THEN
+    RAISE EXCEPTION
+      'El embedding del chunk % tiene % dimensiones y la columna es vector(384). %',
+      NEW.id, dims,
+      'Suele ser OPENAI_API_KEY seteada: ese provider devuelve 1536. Ver .env.production.example.';
+  END IF;
+
+  NEW.embedding_vec := (
+    SELECT array_agg(x::float8)::vector(384)
+    FROM jsonb_array_elements_text(NEW.embedding::jsonb) AS x
+  );
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

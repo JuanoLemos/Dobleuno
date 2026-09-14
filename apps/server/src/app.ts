@@ -27,6 +27,14 @@ import { cronicasDir } from './lib/uploads.js';
 export function createApp(): Express {
   const app = express();
 
+  // Detrás de un reverse proxy (Caddy, nginx), sin esto Express ve la conexión
+  // como HTTP y better-auth no setea las cookies `secure`. El login falla en
+  // producción con un síntoma incomprensible: el request de auth devuelve 200
+  // y la sesión no persiste.
+  if (env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+
   // CORS sólo si hay un origen distinto declarado. Con el cliente servido
   // desde este mismo server no hay nada entre orígenes que permitir.
   if (env.CORS_ORIGIN) {
