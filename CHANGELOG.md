@@ -7,7 +7,10 @@ Cada versión lista los cambios técnicos. Donde existe, se anida abajo la **bit
 
 ## [Unreleased]
 
-_Nada sin versionar todavía._
+### Added
+- Walkthrough de la sesión de v1.0.3 (`doc/arch/walkthrough/`) + su línea en la bitácora. El
+  ciclo de `/CBP` pide registro por sesión salvo en el camino `commit`; el trabajo de SISTEMA.md
+  se liberó por ese camino y quedó sin registrar.
 
 ---
 
