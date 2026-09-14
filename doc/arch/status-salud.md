@@ -24,7 +24,6 @@ Generado por `/CBP full` (fase `/salud`). Última corrida: 2026-09-14.
 | Gap | Severidad | Nota |
 |---|---|---|
 | ADRs 001–004 no existen | P3 | La numeración arranca en ADR-005; las decisiones previas viven en `doc/plan/PLAN.md` (D1–D14) |
-| `doc/arch/SISTEMA.md` no menciona mesas ni el SPA fallback | P2 | Quedó en el estado de Ola 7.1; actualizar al cerrar Ola 10 |
 | `bugs.md` e `incidentes.md` vacíos | P3 | Recién inicializados desde el template |
 
 ## Deuda técnica conocida

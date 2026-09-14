@@ -1,57 +1,97 @@
 # Sistema Dobleuno
 
-> Documento vivo de arquitectura. Última: 2026-07-09 (v0.8.0, Ola 7.1 cerrada).
+> Documento vivo de arquitectura. Última: 2026-09-14 (v1.0.2 — Olas 8 y 9 cerradas, proyecto
+> adaptado a Diligencia).
 
 ## Vista general
 
-Dobleuno es un sistema cliente-servidor para asistir a un jugador de Warhammer: The Old World durante una partida en mesa. El cliente es una PWA mobile-first; el server es un backend Node con BD relacional + vector store + LLM.
+Dobleuno es un sistema cliente-servidor para asistir a un jugador de Warhammer: The Old World
+durante una partida en mesa, y para coordinar las mesas de un club. El cliente es una PWA
+mobile-first; el server es un backend Node con BD relacional + vector store + LLM. Hay además
+un portal estático (Astro) con el reglamento traducido, pensado para consulta rápida y SEO.
+
+Un deploy = un club (single-tenant). Multi-club queda para Fase 2.
 
 ## Diagrama de componentes
 
 ```
-┌──────────────────────────┐                ┌─────────────────────────────┐
-│ Cliente PWA (mobile)     │                │ Server (Node 20+)           │
-│ Vite + React 18 + TS     │                │ Express 4 + TypeScript 5     │
-│ Tailwind 3.4 · PWA       │                │                             │
-│ Zustand · Dexie          │  HTTPS REST   │ /api/auth     (better-auth) │
-│ React Router 6           │ ─────────────► │ /api/health   (GET)         │
-│                          │                │ /api/lists    (CRUD, Ola 3) │
-│ Service Worker           │                │ /api/battles  (CRUD, Ola 4) │
-│ (offline-first)          │                │ /api/rules    (search,Ola 2)│
-└──────────────────────────┘                │ /api/ask      (RAG,  Ola 5) │
-                                            │ /api/admin/kb/* (admin,Ola 7.1)│
-                                            │                             │
-                                            │ ┌──────────────────────┐   │
-                                            │ │ PostgreSQL 16        │   │
-                                            │ │ + pgvector (Ola 5)   │   │
-                                            │ │                      │   │
-                                            │ │ users (con is_admin, │   │
-                                            │ │   Ola 7.1)           │   │
-                                            │ │ · sessions           │   │
-                                            │ │ lists · battles      │   │
-                                            │ │ kb_chunks · faqs     │   │
-                                            │ │ embeddings           │   │
-                                            │ │                      │   │
-                                            │ │ dobleuno-kbdata      │   │
-                                            │ │ (volumen Docker,     │   │
-                                            │ │  cache KB persist.)  │   │
-                                            │ └──────────────────────┘   │
-                                            │                             │
-                                            │ ┌──────────────────────┐   │
-                                            │ │ mirror-tow (admin)   │   │
-                                            │ │ POST /api/admin/kb/  │   │
-                                            │ │ sync (Ola 7.1)       │   │
-                                            │ │ → KB + embeddings    │   │
-                                            │ └──────────────────────┘   │
-                                            │                             │
-                                            │ ┌──────────────────────┐   │
-                                            │ │ DeepSeek client      │──►│ DeepSeek API
-                                            │ │ (SDK openai)         │   │ (chat + embed OAI)
-                                            │ └──────────────────────┘   │
-                                            └─────────────────────────────┘
+┌──────────────────────────┐                ┌─────────────────────────────────┐
+│ Cliente PWA (mobile)     │                │ Server (Node 22)                │
+│ Vite + React 18 + TS     │                │ Express 4 + TypeScript 5        │
+│ Tailwind 3.4 · PWA       │                │                                 │
+│ Zustand · Dexie          │  HTTPS REST    │ /api/auth      (better-auth)    │
+│ React Router 6           │ ─────────────► │ /api/health    (GET)            │
+│                          │                │ /api/lists     (CRUD, Ola 3)    │
+│ TabShell (Ola 8)         │                │ /api/battles   (CRUD, Ola 4)    │
+│  Codex · Ejércitos       │                │ /api/rules     (search, Ola 2)  │
+│  Mesas                   │                │ /api/ask       (RAG, Ola 5)     │
+│ Service Worker           │                │ /api/admin/kb/* (Ola 7.1)       │
+│ (offline-first)          │                │ /api/club      (Ola 8)          │
+└──────────────────────────┘                │ /api/mesas     (Ola 9)          │
+                                            │ /api/sesiones  (Ola 9)          │
+┌──────────────────────────┐                │ /api/mis-reservas (Ola 9)       │
+│ Portal estático (Astro)  │                │ + account (perfil de usuario)   │
+│ Reglamento traducido     │                │                                 │
+│ /reglas · /items · /sobre│                │ SPA fallback: sirve             │
+│ Sin runtime, sin auth    │                │ apps/web/dist si existe         │
+└──────────────────────────┘                │ (WEB_DIST_DIR configurable)     │
+                                            │                                 │
+                                            │ ┌──────────────────────┐        │
+                                            │ │ PostgreSQL 16        │        │
+                                            │ │ + pgvector (Ola 5)   │        │
+                                            │ │                      │        │
+                                            │ │ user (is_admin) ·    │        │
+                                            │ │ session · account ·  │        │
+                                            │ │ verification         │        │
+                                            │ │ lists · battles      │        │
+                                            │ │ units · special_rules│        │
+                                            │ │ magic_items ·        │        │
+                                            │ │ scenarios            │        │
+                                            │ │ kb_chunks ·          │        │
+                                            │ │ ingest_log           │        │
+                                            │ │ club_info   (Ola 8)  │        │
+                                            │ │ mesas · sesiones ·   │        │
+                                            │ │ reservas    (Ola 9)  │        │
+                                            │ │                      │        │
+                                            │ │ dobleuno-kbdata      │        │
+                                            │ │ (volumen Docker,     │        │
+                                            │ │  cache KB persist.)  │        │
+                                            │ └──────────────────────┘        │
+                                            │                                 │
+                                            │ ┌──────────────────────┐        │
+                                            │ │ mirror-tow (admin)   │        │
+                                            │ │ POST /api/admin/kb/  │        │
+                                            │ │ sync (Ola 7.1)       │        │
+                                            │ │ → KB + embeddings    │        │
+                                            │ └──────────────────────┘        │
+                                            │                                 │
+                                            │ ┌──────────────────────┐        │
+                                            │ │ DeepSeek client      │───────►│ DeepSeek API
+                                            │ │ (SDK openai)         │        │ (chat, OAI-compatible)
+                                            │ └──────────────────────┘        │
+                                            └─────────────────────────────────┘
 ```
 
-- `dobleuno-kbdata` (volumen docker) — cache del mirror parseado, montado en `server:/app/data`. Persiste entre reinicios para evitar re-descarga diaria de tow.whfb.app.
+- `dobleuno-kbdata` (volumen docker) — cache del mirror parseado, montado en `server:/app/data`.
+  Persiste entre reinicios para evitar re-descarga de tow.whfb.app.
+- **SPA fallback** (semilla de Ola 11): si existe el build del cliente, el server lo sirve y
+  cualquier ruta fuera de `/api` devuelve `index.html`. Permite un solo origen en producción.
+
+## Pipeline del oráculo (Ola 5, corregido en v1.0.2)
+
+```
+pregunta → embed (provider swappable) → retrieval pgvector (cosine, top-K)
+         → prompt con chunks numerados → DeepSeek → extracción y validación de citas
+```
+
+- **pgvector es requisito duro.** El fallback a búsqueda textual se eliminó en v1.0.2: armaba
+  términos ILIKE a partir de los números del vector, así que devolvía filas arbitrarias. Sin la
+  extensión instalada el retrieval devuelve vacío y el oráculo contesta que no tiene información
+  suficiente, en vez de citar contexto casual.
+- **Citas validadas contra los chunks reales**: `[cita:N]` fuera de rango se descarta, las
+  repetidas se deduplican. El modelo no puede inventar una fuente.
+- Embeddings: OpenAI `text-embedding-3-small` en producción; provider determinístico de 384
+  dims en dev/test (no requiere API key ni red).
 
 ## Capas del cliente
 
@@ -61,6 +101,7 @@ Dobleuno es un sistema cliente-servidor para asistir a un jugador de Warhammer: 
 | UI | React 18 + TS 5 | Ecosistema maduro, type-safe |
 | Estilos | Tailwind 3.4 | Mobile-first, utility-first, paleta custom |
 | Routing | React Router 6 | Data router con loaders |
+| Shell | TabShell (Ola 8) | Header sticky con tabs; reemplazó al bottom-nav (ADR-007) |
 | Estado global | Zustand | Liviano, sin Redux ceremony |
 | Local DB | Dexie 4 | IndexedDB con schema y queries |
 | Forms | React Hook Form + Zod | Estándar, type-safe |
@@ -73,33 +114,64 @@ Dobleuno es un sistema cliente-servidor para asistir a un jugador de Warhammer: 
 
 | Capa | Tech | Por qué |
 |---|---|---|
-| Runtime | Node 20+ | LTS, estable |
+| Runtime | Node 22 | LTS, el que fija `.nvmrc` y usa el CI |
 | Framework | Express 4 | Conocido, sin riesgo |
 | Lenguaje | TypeScript 5 | Mismo stack que cliente |
 | ORM | Drizzle | Type-safe, SQL-first, ideal con pgvector |
-| DB | PostgreSQL 16 | Relacional maduro, pgvector integrado |
+| DB | PostgreSQL 16 + pgvector | Relacional maduro, vector store integrado |
 | Auth | better-auth | Email/pass + verification + reset out-of-box |
 | Embeddings | OpenAI `text-embedding-3-small` | Barato, suficiente calidad |
-| LLM | DeepSeek V3/R1/V4 (vía SDK openai) | ~20-30x más barato que Claude, OpenAI-compatible |
+| LLM | DeepSeek V3/R1 (vía SDK openai) | ~20-30x más barato que Claude, OpenAI-compatible |
 | Validación | Zod | Mismo que cliente, tipos compartidos |
 | Testing | Vitest | Mismo que cliente |
 
+## Portal (Astro)
+
+Sitio estático con el reglamento traducido al español rioplatense. No tiene runtime ni auth:
+se genera con `npm run portal:build` y se sirve como HTML plano. El pipeline de contenido es
+`mirror-tow → parse-tow → translate-tow (DeepSeek, cache por hash) → copy a portal/src/data/`.
+
+Queda como anexo público/SEO hasta la Ola 11, que porta el Codex a React (ADR-006).
+
 ## Decisiones arquitectónicas cerradas (ADRs)
 
-- ADR-001: monorepo (npm workspaces, recomendación futura pnpm)
-- ADR-002: fuente de reglas es `tow.whfb.app` (revive, acepta)
-- ADR-003: backend + LLM (revive, acepta — ahora con DeepSeek)
-- ADR-004: hosting Hetzner VPS (pendiente aceptar formalmente)
-- ADR-005: LLM provider (DeepSeek + OpenAI embeddings)
-- ADR-006: KB sync vía endpoint admin (revive y acepta — Ola 7.1). Reemplaza el cron diario por un job queue in-memory triggereable vía `POST /api/admin/kb/sync`. Razón: control operacional fino (re-sync manual sin esperar al cron) + cache persistente entre reinicios vía volumen `dobleuno-kbdata`.
+Los ADR existen como archivo desde el 005. Las decisiones previas (D1–D14: monorepo, fuente de
+reglas, backend + LLM, hosting) están en `doc/plan/PLAN.md`, no como ADR propio.
+
+| ADR | Decisión |
+|---|---|
+| [ADR-005](ADR-005-llm-provider.md) | LLM provider: DeepSeek + embeddings de OpenAI |
+| [ADR-006](ADR-006-react-single-source.md) | React app como single source of truth post-login; el portal Astro queda como anexo SEO |
+| [ADR-007](ADR-007-tabs-naming.md) | Naming de módulos en español (Codex / Ejércitos / Mesas / Crónicas) |
+| [ADR-008](ADR-008-club-info-model.md) | Modelo de datos del club: single-row, single-tenant |
+| [ADR-009](ADR-009-calendar-data-model.md) | Calendar: mesas / sesiones / reservas + anti-doble-booking |
+
+La decisión de **KB sync vía endpoint admin** (Ola 7.1) reemplazó al cron diario por un job
+queue in-memory triggereable con `POST /api/admin/kb/sync`, con cache persistente en el volumen
+`dobleuno-kbdata`. Está documentada en el CHANGELOG de v0.8.0, no en un ADR propio.
 
 ## Principios
 
-1. **Cliente offline-first** para Listas, Batalla, Reglas. La IA requiere red.
-2. **Server stateless** salvo Postgres. Sesiones JWT, sin estado en memoria.
-3. **Tiered response** para el oráculo (FAQs → KB → LLM) — ver `doc/qa/prompt-v0.1-results.md`.
+1. **Cliente offline-first** para Listas, Batalla y Reglas. La IA requiere red.
+2. **Server stateless** salvo Postgres. Sesiones de better-auth, sin estado en memoria (salvo
+   el job queue del KB sync, deliberadamente efímero).
+3. **El oráculo no inventa fuentes**: sin contexto recuperado no llama al LLM, y toda cita se
+   valida contra los chunks reales.
 4. **Brand consistency**: paleta forge/blood/bronze en la app, parchment en el portal.
-5. **Mobile-first**: 360px de ancho mínimo, touch targets ≥ 44px, bottom nav.
+5. **Mobile-first**: 360px de ancho mínimo, touch targets ≥ 44px, tabs sticky.
+6. **TZ**: el server guarda en UTC; la UI formatea en `America/Buenos_Aires`.
+
+## Verificación
+
+| Check | Estado |
+|---|---|
+| Tests | 141 (115 server + 26 web) + 11 live skip |
+| Lint | ESLint flat config, `--max-warnings=0` |
+| Typecheck | 3 workspaces, 0 errores |
+| CI | lint → typecheck → migraciones → pgvector → seed KB → tests → builds → artefacto |
+
+El CI corre contra `pgvector/pgvector:pg16` con el esquema migrado y la KB seedeada (23
+chunks), así que los caminos contra base se ejercitan de verdad.
 
 ## Costos mensuales (1 usuario activo)
 
@@ -112,3 +184,9 @@ Dobleuno es un sistema cliente-servidor para asistir a un jugador de Warhammer: 
 | OpenAI embeddings (1 update/semana) | ~200K tokens | ~$0.01 |
 | Dominio (.app) | anual | ~$10/año |
 | **Total** | | **~$5.73/mes + dominio** |
+
+## Archivos relacionados
+- `ROADMAP.md` — plan por olas
+- `doc/MODULES.md` — qué ve el usuario en cada módulo
+- `doc/guias/deploy.md` — deploy en Hetzner + Cloudflare
+- `doc/arch/status-salud.md` — diagnóstico de salud

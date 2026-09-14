@@ -48,7 +48,7 @@ vía `diligencia-lock.json`; las de dominio (TOW) son del proyecto.
 
 | Archivo | Versión | Última actualización | Resumen (L0) |
 |---|---|---|---|
-| doc/arch/SISTEMA.md | — | 2026-07-10 | Arquitectura, stack y dependencias |
+| doc/arch/SISTEMA.md | v1.0.2 | 2026-09-14 | Arquitectura, stack, endpoints, pipeline del oráculo |
 | doc/arch/ADR_SUMMARY.md | template | 2026-09-14 | Índice de decisiones arquitectónicas |
 | doc/arch/ADR-005-llm-provider.md | — | 2026-07-09 | DeepSeek como proveedor LLM |
 | doc/arch/ADR-006-react-single-source.md | — | 2026-07-10 | React app como single source of truth |
