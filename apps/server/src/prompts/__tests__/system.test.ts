@@ -4,7 +4,8 @@
  * Dos tipos de tests:
  *   1. Estáticos: verifican la estructura del prompt. Corren siempre.
  *   2. Live: llaman a DeepSeek con cada pregunta del fixture y validan la respuesta.
- *      Se saltean si DEEPSEEK_API_KEY no está configurada.
+ *      Se saltean si DEEPSEEK_API_KEY no está configurada, o si su valor es
+ *      un placeholder (ver `hasApiKey` más abajo).
  *
  * Para correr todo:
  *   cp .env.example .env  # completar con tu API key de DeepSeek
@@ -63,7 +64,16 @@ interface ExpectedAnswers {
   criteria: Record<string, ExpectedCriteria>;
 }
 
-const hasApiKey = !!process.env.DEEPSEEK_API_KEY;
+/**
+ * Una key placeholder alcanza para que `getDeepSeekConfig()` no tire, pero no
+ * sirve para llamar a la API. El CI define `DEEPSEEK_API_KEY: sk-test-mock`
+ * como fallback cuando no hay secret (ver .github/workflows/ci.yml), así que
+ * sin este filtro los live tests no se salteaban: salían a la red de verdad y
+ * volvían con 401, dejando el build en rojo.
+ */
+const apiKey = process.env.DEEPSEEK_API_KEY ?? '';
+const isPlaceholderKey = /mock|dummy|fake|placeholder/i.test(apiKey);
+const hasApiKey = apiKey.length > 0 && !isPlaceholderKey;
 const describeIfApi = hasApiKey ? describe : describe.skip;
 const model = process.env.DEEPSEEK_MODEL || DEEPSEEK_DEFAULT_MODEL;
 
