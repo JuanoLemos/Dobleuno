@@ -33,6 +33,7 @@ import {
   MAX_BYTES_FOTO,
   MAX_FOTOS_POR_CRONICA,
 } from '../lib/uploads.js';
+import { generarCronica, motivoSinContexto } from '../lib/story-gen.js';
 import { log } from '../lib/logger.js';
 import type { Cronica, CronicaFoto } from '@dobleuno/shared';
 import type { CronicaRow, CronicaFotoRow } from '../db/schema/cronicas.js';
@@ -63,6 +64,27 @@ const UpdateCronicaSchema = z.object({
   visibilidad: z.enum(['privada', 'publica']).optional(),
   tono: z.enum(['cronista', 'epico', 'sobrio']).optional(),
 });
+
+const GenerarSchema = z.object({
+  tono: z.enum(['cronista', 'epico', 'sobrio']).optional(),
+  /** Preferencia de estilo en texto libre. Se capa acá y otra vez en el prompt. */
+  promptUsuario: z.string().max(500).nullable().optional(),
+});
+
+/** Tope de regeneraciones por crónica. */
+const MAX_GENERACIONES = 5;
+
+/** Cooldown por usuario entre generaciones, en ms. */
+const COOLDOWN_MS = 30_000;
+
+/**
+ * Última generación por usuario.
+ *
+ * In-memory a propósito: es un freno de cortesía contra el doble click y el
+ * bucle accidental, no un rate limiter serio. Se pierde al reiniciar y no se
+ * comparte entre réplicas; el tope real de gasto es `generaciones` en la DB.
+ */
+const ultimaGeneracion = new Map<string, number>();
 
 // ─── Serialización ────────────────────────────────────────────────────────
 
@@ -349,6 +371,116 @@ cronicasRouter.delete('/:id', requireAuth, async (req, res) => {
   } catch (err) {
     log.error('Cronica delete failed', { userId, error: (err as Error).message });
     res.status(500).json({ error: 'Failed to delete cronica' });
+  }
+});
+
+/**
+ * POST /api/cronicas/:id/generar — genera (o regenera) el relato.
+ *
+ * Frenos, en orden: batalla con material (422 sin llamar al LLM), tope de
+ * generaciones (429), cooldown por usuario (429). Ver ADR-010.
+ */
+cronicasRouter.post('/:id/generar', requireAuth, async (req, res) => {
+  const userId = req.authUser?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  const cronicaId = req.params.id as string;
+  const parsed = GenerarSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Bad request', details: parsed.error.flatten() });
+    return;
+  }
+
+  const desdeUltima = Date.now() - (ultimaGeneracion.get(userId) ?? 0);
+  if (desdeUltima < COOLDOWN_MS) {
+    res.status(429).json({
+      error: 'Too many requests',
+      retryAfterMs: COOLDOWN_MS - desdeUltima,
+    });
+    return;
+  }
+
+  try {
+    if (!(await isDbHealthy())) {
+      res.status(503).json({ error: 'Database not available' });
+      return;
+    }
+    const cronica = await cronicaPropia(cronicaId, userId, res);
+    if (!cronica) return;
+
+    if (cronica.generaciones >= MAX_GENERACIONES) {
+      res.status(429).json({ error: 'Generation limit reached', max: MAX_GENERACIONES });
+      return;
+    }
+
+    const [batalla] = await db
+      .select()
+      .from(battles)
+      .where(eq(battles.id, cronica.battleId))
+      .limit(1);
+    if (!batalla) {
+      res.status(404).json({ error: 'Battle not found' });
+      return;
+    }
+
+    // Sin material no se llama al LLM: no generamos ficción pura.
+    const motivo = motivoSinContexto(batalla.data);
+    if (motivo) {
+      res.status(422).json({
+        error: 'Not enough context',
+        motivo,
+        detalle:
+          motivo === 'no-terminada'
+            ? 'La batalla no está terminada.'
+            : 'La batalla no tiene unidades ni eventos registrados.',
+      });
+      return;
+    }
+
+    const tono = parsed.data.tono ?? cronica.tono;
+    ultimaGeneracion.set(userId, Date.now());
+
+    const generada = await generarCronica({
+      battle: batalla.data,
+      tono,
+      promptUsuario: parsed.data.promptUsuario ?? cronica.promptUsuario,
+    });
+
+    const [row] = await db
+      .update(cronicas)
+      .set({
+        texto: generada.texto,
+        anclas: generada.anclas,
+        warnings: generada.warnings,
+        modelo: generada.modelo,
+        promptVersion: generada.promptVersion,
+        promptUsuario: parsed.data.promptUsuario ?? cronica.promptUsuario,
+        tono,
+        generaciones: cronica.generaciones + 1,
+        generatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(cronicas.id, cronicaId))
+      .returning();
+    if (!row) {
+      res.status(500).json({ error: 'Failed to save cronica' });
+      return;
+    }
+
+    log.info('Cronica generated', {
+      userId,
+      cronicaId,
+      modelo: generada.modelo,
+      anclas: generada.anclas.length,
+      warnings: generada.warnings.length,
+      chars: generada.texto.length,
+    });
+    res.json(toCronica(row));
+  } catch (err) {
+    log.error('Cronica generation failed', { userId, cronicaId, error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to generate cronica' });
   }
 });
 
