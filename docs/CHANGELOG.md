@@ -4,8 +4,6 @@ Todas las versiones notables.
 
 ## [Unreleased]
 
-Cambios posteriores al tag v1.0.0, sin versionar todavía.
-
 ### Fixed
 - **El retrieval del oráculo nunca devolvía chunks** (`lib/rag.ts`). Las dos ramas cerraban con `Array.isArray(rows)`, pero drizzle/node-postgres resuelve `db.execute()` con un QueryResult, no con un array. El oráculo contestaba "no tengo información suficiente" al 100% de las preguntas desde Ola 5. Helper `toRows()` acepta las dos formas.
 - **Los live tests de DeepSeek no se salteaban en CI** (`prompts/__tests__/system.test.ts`). El guard miraba solo si `DEEPSEEK_API_KEY` existía, y el workflow define `sk-test-mock` como fallback: los 10 tests salían a la API real y volvían 401. Es la razón por la que el CI estuvo rojo desde Ola 2.

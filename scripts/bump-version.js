@@ -26,7 +26,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = dirname(__dirname);
@@ -67,6 +67,35 @@ function bumpVersion(current, type) {
   }
 }
 
+export const UNRELEASED_PLACEHOLDER = '_Nada sin versionar todavía._';
+
+const UNRELEASED_RE = /^## \[Unreleased\]\s*\n([\s\S]*?)(?=\n## \[)/m;
+
+/**
+ * Mueve el contenido de [Unreleased] a una sección de versión nueva, y deja
+ * [Unreleased] vacío arriba.
+ *
+ * Antes esto descartaba el contenido: reemplazaba el bloque entero por
+ * "_Próxima ola._", así que todo lo anotado entre releases se perdía al bumpear.
+ */
+export function rollUnreleased(changelog, header) {
+  const match = changelog.match(UNRELEASED_RE);
+
+  // Sin sección [Unreleased]: insertamos la versión antes de la primera que haya.
+  if (!match) {
+    return changelog.replace(/(?=^## \[)/m, `${header}\n\n_Próxima ola._\n\n---\n\n`);
+  }
+
+  // El --- que cierra el bloque es del layout, no del contenido.
+  const body = (match[1] ?? '').replace(/\n*-{3,}\s*$/, '').trim();
+  const moved = body === '' || body === UNRELEASED_PLACEHOLDER ? '_Próxima ola._' : body;
+
+  return changelog.replace(
+    UNRELEASED_RE,
+    `## [Unreleased]\n\n${UNRELEASED_PLACEHOLDER}\n\n---\n\n${header}\n\n${moved}\n\n`,
+  );
+}
+
 function main() {
   // 1. Read current version from root
   const rootPkg = readJSON(PACKAGES[0]);
@@ -90,12 +119,7 @@ function main() {
   if (changelog.includes(`## [${next}]`)) {
     console.log(`  ⊘ CHANGELOG ya tiene ${next}`);
   } else {
-    // Move "Unreleased" section content into a new version section
-    const updated = changelog.replace(
-      /## \[Unreleased\][\s\S]*?(?=\n## )/,
-      `${newHeader}\n\n_Próxima ola._\n\n## [Unreleased]`,
-    );
-    writeFileSync(changelogPath, updated, 'utf-8');
+    writeFileSync(changelogPath, rollUnreleased(changelog, newHeader), 'utf-8');
     console.log(`  ✓ CHANGELOG`);
   }
 
@@ -113,4 +137,7 @@ function main() {
   }
 }
 
-main();
+// Solo corremos main() al invocar el script; importarlo (tests) no dispara nada.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
+}
