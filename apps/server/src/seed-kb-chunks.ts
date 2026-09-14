@@ -87,9 +87,22 @@ interface CorpusUnit {
   source: Fuente;
 }
 
-function leerCorpus<T>(archivo: string): T[] {
+/**
+ * `--allow-missing` hace que la ausencia del corpus no sea un error.
+ *
+ * Lo usa el CI: `data/processed/` está gitignored (doc/Sources.md: el contenido
+ * scrapeado no se redistribuye), así que en el runner no existe. Sin el flag,
+ * el seed falla fuerte, que es lo que querés en tu máquina.
+ */
+const PERMITE_FALTANTE = process.argv.includes('--allow-missing');
+
+function leerCorpus<T>(archivo: string): T[] | null {
   const ruta = join(DATA_PROCESSED, archivo);
   if (!existsSync(ruta)) {
+    if (PERMITE_FALTANTE) {
+      log.warn(`Falta ${archivo}; seed omitido (--allow-missing).`);
+      return null;
+    }
     log.error(`Falta ${ruta}. Corré primero: npm run rules:sync`);
     process.exit(1);
   }
@@ -121,17 +134,28 @@ function perfilATexto(profile: Array<Record<string, string>>): string {
 }
 
 async function main(): Promise<void> {
+  // El corpus se chequea antes que la DB: si no hay nada que sembrar, no hace
+  // falta base para saberlo.
+  const reglasOpt = leerCorpus<CorpusRule>('rules.json');
+  const itemsOpt = leerCorpus<CorpusItem>('magic-items.json');
+  const unidadesOpt = leerCorpus<CorpusUnit>('units.json');
+
+  if (!reglasOpt || !itemsOpt || !unidadesOpt) {
+    log.warn('Sin corpus en data/processed/: no hay nada que sembrar. Salgo sin error.');
+    process.exit(0);
+  }
+  const reglas = reglasOpt;
+  const items = itemsOpt;
+  const unidades = unidadesOpt;
+
+  log.info(
+    `Corpus: ${reglas.length} reglas · ${items.length} items · ${unidades.length} unidades`,
+  );
+
   if (!(await isDbHealthy())) {
     log.error('Database no disponible. Corré `npm run db:up` primero.');
     process.exit(1);
   }
-
-  const reglas = leerCorpus<CorpusRule>('rules.json');
-  const items = leerCorpus<CorpusItem>('magic-items.json');
-  const unidades = leerCorpus<CorpusUnit>('units.json');
-  log.info(
-    `Corpus: ${reglas.length} reglas · ${items.length} items · ${unidades.length} unidades`,
-  );
 
   const provider = getEmbeddingProvider();
   log.info(`Embeddings con provider: ${provider.name} (${provider.dims} dims)`);

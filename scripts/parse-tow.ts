@@ -116,38 +116,99 @@ interface RichNode {
   content?: RichNode[];
 }
 
-const NODOS_BLOQUE = new Set([
+/** Contenedores: sus hijos son bloques y van en líneas separadas. */
+const NODOS_CONTENEDOR = new Set([
   'document',
-  'paragraph',
   'unordered-list',
   'ordered-list',
-  'list-item',
   'table',
   'table-row',
   'blockquote',
 ]);
 
 /**
+ * Nodos que forman una línea: sus hijos son inline y se concatenan.
+ *
+ * Distinguirlos importa: un párrafo con un link en el medio ("durante la
+ * <link>fase de Combate</link>, el modelo…") tiene tres hijos inline. Tratarlo
+ * como contenedor mete saltos de línea en mitad de la oración.
+ */
+const NODOS_LINEA = new Set(['paragraph', 'list-item', 'table-cell', 'table-header-cell']);
+
+/** Campos escalares de una entrada embebida que vale la pena mostrar. */
+const CAMPOS_EMBEBIDOS: Array<[string, string]> = [
+  ['range', 'Alcance'],
+  ['strength', 'Fuerza'],
+  ['armourPiercing', 'Penetración'],
+  ['cost', 'Costo'],
+  ['type', 'Tipo'],
+];
+
+/**
+ * Aplana una entrada embebida (`embedded-entry-block` / `-inline`).
+ *
+ * El caso típico es `weaponProfile`: el perfil del arma con alcance, fuerza y
+ * penetración. 523 reglas del corpus embeben una entrada así, y son
+ * justamente las armas — el perfil es el contenido principal, no un adorno.
+ */
+function embebidaAPlano(target: unknown): string {
+  if (!target || typeof target !== 'object') return '';
+  const fields = (target as { fields?: Record<string, unknown> }).fields;
+  if (!fields) return '';
+
+  const partes: string[] = [];
+  if (typeof fields.name === 'string') partes.push(fields.name);
+
+  const escalares = CAMPOS_EMBEBIDOS.filter(([k]) => {
+    const v = fields[k];
+    return typeof v === 'string' || typeof v === 'number';
+  }).map(([k, etiqueta]) => `${etiqueta} ${String(fields[k])}`);
+  if (escalares.length > 0) partes.push(escalares.join(', '));
+
+  // Sub-documentos (specialRules del perfil, por ejemplo).
+  for (const [k, v] of Object.entries(fields)) {
+    if (CAMPOS_EMBEBIDOS.some(([campo]) => campo === k) || k === 'name' || k === 'slug') continue;
+    if (v && typeof v === 'object' && (v as RichNode).nodeType === 'document') {
+      const texto = richTextToPlain(v);
+      if (texto) partes.push(texto);
+    }
+  }
+
+  if (typeof fields.bodyIndex === 'string' && fields.bodyIndex && partes.length <= 1) {
+    partes.push(fields.bodyIndex);
+  }
+  return partes.filter(Boolean).join(' · ');
+}
+
+/**
  * Aplana un documento rich-text de Contentful.
  *
  * Para reglas e items casi siempre existe `bodyIndex`, que ya viene en texto
  * plano; esto hace falta para los campos de unidad (equipment, specialRules,
- * options), que solo vienen como documento, y como fallback del 1% de reglas
- * sin `bodyIndex`.
+ * options), que solo vienen como documento, y para las entradas embebidas, que
+ * `bodyIndex` no incluye.
  */
 export function richTextToPlain(node: unknown): string {
   if (!node || typeof node !== 'object') return '';
   const n = node as RichNode;
 
   if (typeof n.value === 'string') return n.value;
+
+  // Entradas embebidas: el contenido vive en data.target, no en content.
+  if (n.nodeType === 'embedded-entry-block' || n.nodeType === 'embedded-entry-inline') {
+    return embebidaAPlano((n as { data?: { target?: unknown } }).data?.target);
+  }
+
   if (!Array.isArray(n.content)) return '';
 
   const partes = n.content.map(richTextToPlain);
-  const esBloque =
-    (n.nodeType && NODOS_BLOQUE.has(n.nodeType)) || n.nodeType?.startsWith('heading-');
+  const tipo = n.nodeType ?? '';
 
-  // Los bloques se separan con salto; lo inline se concatena (ya trae espacios).
-  return esBloque ? partes.filter(Boolean).join('\n').trim() : partes.join('');
+  if (NODOS_CONTENEDOR.has(tipo)) return partes.filter((p) => p.trim()).join('\n').trim();
+  if (NODOS_LINEA.has(tipo) || tipo.startsWith('heading-')) return partes.join('').trim();
+
+  // Inline (text, hyperlink, entry-hyperlink…): se concatena tal cual.
+  return partes.join('');
 }
 
 // ─── Helpers de lectura ───────────────────────────────────────────────────
@@ -212,7 +273,9 @@ function parseRule(raw: RawFile): ParsedRule {
     name: texto(f.name),
     ruleType: slugs(f.ruleType)[0] ?? '',
     associations: slugs(f.association),
-    text: texto(f.bodyIndex) || richTextToPlain(f.body) || richTextToPlain(f.description),
+    // El documento completo gana sobre bodyIndex: ese campo omite las entradas
+    // embebidas, y con ellas el perfil de las armas. Son 742 reglas del corpus.
+    text: richTextToPlain(f.body) || texto(f.bodyIndex) || richTextToPlain(f.description),
     related: slugs(f.relatedLinks),
     source: { page: pagina(f), url: raw.url, lastVerified: raw.fetchedAt.slice(0, 10) },
   });
@@ -228,7 +291,9 @@ function parseItem(raw: RawFile): ParsedItem {
     cost: numero(f.cost) ?? 0,
     itemTypes: slugs(f.magicItemType),
     associations: slugs(f.association),
-    text: texto(f.bodyIndex) || richTextToPlain(f.body) || richTextToPlain(f.description),
+    // El documento completo gana sobre bodyIndex: ese campo omite las entradas
+    // embebidas, y con ellas el perfil de las armas. Son 742 reglas del corpus.
+    text: richTextToPlain(f.body) || texto(f.bodyIndex) || richTextToPlain(f.description),
     source: { page: pagina(f), url: raw.url, lastVerified: raw.fetchedAt.slice(0, 10) },
   });
 }
