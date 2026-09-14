@@ -114,7 +114,8 @@ function main() {
   // 3. Update CHANGELOG with new version header
   const changelogPath = join(ROOT, 'docs', 'CHANGELOG.md');
   const changelog = readFileSync(changelogPath, 'utf-8');
-  const today = new Date().toISOString().slice(0, 10);
+  // en-CA da YYYY-MM-DD en hora local; toISOString() daba UTC y de noche adelantaba un día.
+  const today = new Date().toLocaleDateString('en-CA');
   const newHeader = `## [${next}] — ${today}`;
   if (changelog.includes(`## [${next}]`)) {
     console.log(`  ⊘ CHANGELOG ya tiene ${next}`);

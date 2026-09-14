@@ -8,7 +8,7 @@ _Nada sin versionar todavía._
 
 ---
 
-## [1.0.1] — 2026-09-14
+## [1.0.1] — 2026-09-13
 
 ### Fixed
 - **El retrieval del oráculo nunca devolvía chunks** (`lib/rag.ts`). Las dos ramas cerraban con `Array.isArray(rows)`, pero drizzle/node-postgres resuelve `db.execute()` con un QueryResult, no con un array. El oráculo contestaba "no tengo información suficiente" al 100% de las preguntas desde Ola 5. Helper `toRows()` acepta las dos formas.
