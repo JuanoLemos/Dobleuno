@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dobleuno — El compañero de mesa para Warhammer: The Old World</title>
+  <meta name="description" content="Dobleuno: listas, batallas y reglas de Warhammer: The Old World en tu celular. Asistente de mesa, en castellano." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"DM Serif Display"', 'serif'],
+            sans:  ['Outfit', 'system-ui', 'sans-serif'],
+            mono:  ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            parchment: { 50: '#f7f5f0', 100: '#ede8d9', 200: '#e1d9c2', 300: '#c8bca1' },
+            ink:       { DEFAULT: '#14171e', soft: '#3a4256', muted: '#7c7a72' },
+            blood:     { 50: '#fbeaea', 200: '#d97070', 500: '#a01919', 600: '#7e1313', 700: '#5e0e0e' },
+            bronze:    { 200: '#e0c283', 400: '#c19446', 500: '#b8860b', 700: '#7d5a07' },
+            forge:     { 0: '#0a0a0a', 1: '#141414', 2: '#1c1c1c', 3: '#262626' },
+          },
+          boxShadow: {
+            soft:    '0 2px 8px rgba(20,23,30,0.04)',
+            lifted:  '0 4px 16px -2px rgba(20,23,30,0.06)',
+            pressed: '0 1px 2px rgba(20,23,30,0.05)',
+            sigil:   '0 1px 0 rgba(184,134,11,0.35), 0 6px 24px -8px rgba(160,25,25,0.25)',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    html, body { background: #f7f5f0; color: #14171e; }
+    body { font-family: 'Outfit', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+    /* Subtle parchment grain */
+    .grain {
+      background-image:
+        radial-gradient(rgba(160,25,25,0.05) 1px, transparent 1px),
+        radial-gradient(rgba(184,134,11,0.04) 1px, transparent 1px);
+      background-size: 28px 28px, 56px 56px;
+      background-position: 0 0, 14px 14px;
+    }
+
+    /* Heater shield silhouette for the logo mark */
+    .shield {
+      clip-path: path('M50 0 L100 0 L100 60 Q100 100 50 120 Q0 100 0 60 L0 0 Z');
+    }
+
+    /* Wax-seal style accent */
+    .seal {
+      background: radial-gradient(circle at 30% 30%, #c41e3a 0%, #a01919 50%, #5e0e0e 100%);
+      box-shadow: inset 0 -2px 6px rgba(0,0,0,0.35), inset 0 2px 4px rgba(255,255,255,0.18), 0 4px 12px rgba(160,25,25,0.35);
+    }
+
+    /* Scroll divider */
+    .scroll-divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, rgba(184,134,11,0.45) 20%, rgba(184,134,11,0.45) 80%, transparent);
+    }
+
+    /* Phone frame */
+    .phone {
+      width: 280px;
+      aspect-ratio: 9 / 19.5;
+      border-radius: 36px;
+      background: linear-gradient(180deg, #1f1f1f, #0a0a0a);
+      padding: 10px;
+      box-shadow: 0 30px 60px -20px rgba(20,23,30,0.45), 0 12px 24px -8px rgba(20,23,30,0.25);
+      position: relative;
+    }
+    .phone::before {
+      content: "";
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      width: 96px; height: 22px;
+      background: #0a0a0a;
+      border-radius: 14px;
+      z-index: 2;
+    }
+    .phone-screen {
+      width: 100%; height: 100%;
+      border-radius: 28px;
+      background: #0a0a0a;
+      overflow: hidden;
+      position: relative;
+    }
+    @media (max-width: 900px) {
+      .phone { width: 240px; }
+    }
+    @media (max-width: 640px) {
+      .phone { width: 220px; }
+    }
+
+    /* Tap target for CTAs */
+    .cta-primary {
+      background: linear-gradient(180deg, #c41e3a, #7e1313);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, 0 6px 18px -4px rgba(160,25,25,0.45);
+      transition: transform 200ms ease, box-shadow 200ms ease;
+    }
+    .cta-primary:hover { transform: translateY(-1px); box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 10px 22px -4px rgba(160,25,25,0.55); }
+
+    .cta-ghost {
+      background: transparent;
+      border: 1px solid rgba(20,23,30,0.18);
+      transition: all 200ms ease;
+    }
+    .cta-ghost:hover { background: rgba(20,23,30,0.04); border-color: rgba(20,23,30,0.35); }
+
+    /* Underline-on-hover for nav */
+    .nav-link { position: relative; }
+    .nav-link::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: -4px;
+      height: 1px; background: #a01919; transform: scaleX(0); transform-origin: left;
+      transition: transform 200ms ease;
+    }
+    .nav-link:hover::after { transform: scaleX(1); }
+
+    /* Chat bubble for the rules oracle */
+    .bubble-ask {
+      background: linear-gradient(180deg, #fffaf0, #f5ecd6);
+      border: 1px solid #e1d9c2;
+      border-left: 3px solid #b8860b;
+    }
+    .bubble-answer {
+      background: linear-gradient(180deg, #ffffff, #fbf7ee);
+      border: 1px solid #e1d9c2;
+      border-left: 3px solid #a01919;
+    }
+
+    /* Stat tile */
+    .stat {
+      background: #ffffff;
+      border: 1px solid #e1d9c2;
+      border-radius: 10px;
+      padding: 8px 4px;
+      text-align: center;
+    }
+
+    /* Subtle red glow on hover for sigil */
+    .sigil-link:hover .sigil-mark { filter: drop-shadow(0 0 12px rgba(160,25,25,0.35)); }
+    .sigil-mark { transition: filter 250ms ease; }
+  </style>
+</head>
+<body class="grain min-h-[100dvh]">
+
+  <!-- Top nav -->
+  <header class="border-b border-parchment-200/60">
+    <div class="max-w-6xl mx-auto px-6 md:px-8 py-5 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-3 sigil-link">
+        <span class="sigil-mark">
+          <!-- Mini sigil -->
+          <svg width="32" height="38" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#c41e3a"/>
+                <stop offset="1" stop-color="#7e1313"/>
+              </linearGradient>
+            </defs>
+            <path d="M50 4 L96 4 L96 60 Q96 96 50 116 Q4 96 4 60 L4 4 Z" fill="url(#g1)" stroke="#b8860b" stroke-width="3"/>
+            <text x="50" y="68" text-anchor="middle" font-family="DM Serif Display, serif" font-size="44" fill="#f7f5f0">2·1</text>
+          </svg>
+        </span>
+        <span class="font-serif text-2xl tracking-tight">Dobleuno</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-7 text-sm text-ink-soft">
+        <a class="nav-link" href="#identidad">Identidad</a>
+        <a class="nav-link" href="#pantallas">Pantallas</a>
+        <a class="nav-link" href="#unidad">Unidad</a>
+        <a class="nav-link" href="#oraculo">Oráculo</a>
+        <a class="nav-link" href="#roadmap">Roadmap</a>
+      </nav>
+      <a href="#cta" class="cta-primary text-parchment-50 text-sm font-medium px-4 py-2 rounded-full">Empezar</a>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section id="top" class="max-w-6xl mx-auto px-6 md:px-8 pt-16 md:pt-24 pb-20">
+    <div class="grid md:grid-cols-12 gap-10 items-end">
+      <div class="md:col-span-7">
+        <p class="text-xs uppercase tracking-[0.2em] text-ink-muted mb-6">Warhammer: The Old World · Compañía de mesa</p>
+        <h1 class="font-serif text-5xl md:text-7xl leading-[1.02] tracking-tight">
+          El compañero de<br/>
+          mesa <span class="text-blood-500">que cabe</span><br/>
+          en tu celu.
+        </h1>
+        <p class="mt-6 text-lg text-ink-soft max-w-xl">
+          Listas, batallas y reglas de <em>The Old World</em> en la mano. Sin communities, sin leaderboards.
+          Solo vos, tu ejército y un asistente que sabe de qué se trata.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="#cta" class="cta-primary text-parchment-50 font-medium px-6 py-3 rounded-full text-base">Empezar a armar mi lista</a>
+          <a href="#pantallas" class="cta-ghost text-ink px-6 py-3 rounded-full text-base">Ver cómo se ve</a>
+        </div>
+        <p class="mt-6 text-xs text-ink-muted">
+          v0.1 · MVP en construcción. Esta página es la piel que va a tener la app.
+        </p>
+      </div>
+      <div class="md:col-span-5">
+        <!-- Hero sigil -->
+        <div class="flex md:justify-end">
+          <svg class="sigil-mark" width="240" height="288" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#c41e3a"/>
+                <stop offset="1" stop-color="#5e0e0e"/>
+              </linearGradient>
+              <linearGradient id="br" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#e0c283"/>
+                <stop offset="1" stop-color="#7d5a07"/>
+              </linearGradient>
+            </defs>
+            <path d="M50 4 L96 4 L96 60 Q96 96 50 116 Q4 96 4 60 L4 4 Z" fill="url(#g2)" stroke="url(#br)" stroke-width="3"/>
+            <text x="50" y="62" text-anchor="middle" font-family="DM Serif Display, serif" font-size="40" fill="#f7f5f0" font-style="italic">doble</text>
+            <text x="50" y="92" text-anchor="middle" font-family="DM Serif Display, serif" font-size="32" fill="#e0c283">uno</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="scroll-divider mt-20"></div>
+  </section>
+
+  <!-- Identidad visual -->
+  <section id="identidad" class="max-w-6xl mx-auto px-6 md:px-8 py-16 md:py-20">
+    <div class="grid md:grid-cols-12 gap-12">
+      <div class="md:col-span-4">
+        <p class="text-xs uppercase tracking-[0.2em] text-ink-muted mb-4">01 — Identidad</p>
+        <h2 class="font-serif text-4xl md:text-5xl leading-tight">Pergamino<br/>y fragua.</h2>
+        <p class="mt-4 text-ink-soft">El portal es pergamino. La app es fragua. Cuando abrís Dobleuno en la mesa, dejás el mundo real y entrás a la fragua: oscura, densa, legible a la luz de una vela.</p>
+      </div>
+      <div class="md:col-span-8 space-y-10">
+
+        <!-- Color palette -->
+        <div>
+          <h3 class="text-sm font-medium text-ink-muted mb-4">Paleta</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div class="rounded-2xl border border-parchment-200 p-3 bg-parchment-50 shadow-soft">
+              <div class="h-16 rounded-lg mb-2" style="background:#f7f5f0; border:1px solid #e1d9c2"></div>
+              <div class="font-mono text-xs">#f7f5f0 · parchment</div>
+            </div>
+            <div class="rounded-2xl border border-parchment-200 p-3 bg-parchment-50 shadow-soft">
+              <div class="h-16 rounded-lg mb-2" style="background:#a01919"></div>
+              <div class="font-mono text-xs">#a01919 · blood</div>
+            </div>
+            <div class="rounded-2xl border border-parchment-200 p-3 bg-parchment-50 shadow-soft">
+              <div class="h-16 rounded-lg mb-2" style="background:#b8860b"></div>
+              <div class="font-mono text-xs">#b8860b · bronze</div>
+            </div>
+            <div class="rounded-2xl border border-parchment-200 p-3 bg-parchment-50 shadow-soft">
+              <div class="h-16 rounded-lg mb-2" style="background:#14171e"></div>
+              <div class="font-mono text-xs">#14171e · ink</div>
+            </div>
+            <div class="rounded-2xl border border-parchment-200 p-3 bg-parchment-50 shadow-soft">
+              <div class="h-16 rounded-lg mb-2" style="background:#0a0a0a"></div>
+              <div class="font-mono text-xs">#0a0a0a · forge</div>
+            </div>
+            <div class="rounded-2xl border border-parchment-200 p-3 bg-parchment-50 shadow-soft">
+              <div class="h-16 rounded-lg mb-2" style="background:#7c7a72"></div>
+              <div class="font-mono text-xs">#7c7a72 · muted</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Typography -->
+        <div>
+          <h3 class="text-sm font-medium text-ink-muted mb-4">Tipografía</h3>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div class="rounded-2xl border border-parchment-200 bg-parchment-50 p-5 shadow-soft">
+              <p class="text-xs text-ink-muted mb-1">DM Serif Display · headlines</p>
+              <p class="font-serif text-3xl">Por la gloria del Imperio.</p>
+            </div>
+            <div class="rounded-2xl border border-parchment-200 bg-parchment-50 p-5 shadow-soft">
+              <p class="text-xs text-ink-muted mb-1">Outfit · cuerpo</p>
+              <p class="text-base text-ink-soft">Las listas se arman a la antigua: ejército, generales, núcleo, especial, singular.</p>
+            </div>
+            <div class="rounded-2xl border border-parchment-200 bg-parchment-50 p-5 shadow-soft sm:col-span-2">
+              <p class="text-xs text-ink-muted mb-1">JetBrains Mono · números y dados</p>
+              <p class="font-mono text-lg text-ink">M4 · WS4 · BS3 · S3 · T3 · W1 · I3 · A1 · Ld8</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="scroll-divider mt-20"></div>
+  </section>
+
+  <!-- Pantallas (phone mockups) -->
+  <section id="pantallas" class="max-w-6xl mx-auto px-6 md:px-8 py-16 md:py-20">
+    <div class="grid md:grid-cols-12 gap-10 mb-12">
+      <div class="md:col-span-7">
+        <p class="text-xs uppercase tracking-[0.2em] text-ink-muted mb-4">02 — Tres pantallas</p>
+        <h2 class="font-serif text-4xl md:text-5xl leading-tight">Listas, Batalla,<br/>Reglas.</h2>
+      </div>
+      <div class="md:col-span-5">
+        <p class="text-ink-soft">Tres pestañas, una mano. El jugador no navega menús: abre la app y entra a lo que estaba haciendo. La pantalla queda en negro para cuidar la batería y la vista.</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-8 md:gap-10 items-start justify-items-center">
+
+      <!-- Phone 1: Listas -->
+      <figure class="flex flex-col items-center">
+        <div class="phone">
+          <div class="phone-screen text-parchment-50 font-sans text-xs">
+            <!-- status -->
+            <div class="flex justify-between items-center px-5 pt-3 pb-1 text-[10px] text-parchment-200">
+              <span>21:14</span>
+              <span class="font-mono">TOW</span>
+            </div>
+            <!-- tab bar -->
+            <div class="px-4 pt-2 flex gap-1 text-[10px] text-parchment-300">
+              <div class="px-2 py-1 rounded-full bg-blood-500 text-parchment-50">Listas</div>
+              <div class="px-2 py-1">Batalla</div>
+              <div class="px-2 py-1">Reglas</div>
+            </div>
+            <div class="px-4 mt-3">
+              <p class="font-serif text-2xl">Mis listas</p>
+              <p class="text-parchment-300 text-[10px]">3 listas guardadas</p>
+            </div>
+            <div class="px-4 mt-3 space-y-2">
+              <div class="bg-forge-1 border border-forge-2 rounded-xl p-3">
+                <p class="font-serif text-sm">Imperio · 2000 pts</p>
+                <p class="text-[10px] text-parchment-300 mt-1">2 héros · 4 unidades · 2 máquinas</p>
+                <div class="mt-2 flex gap-1">
+                  <span class="text-[9px] px-1.5 py-0.5 rounded bg-forge-2 text-parchment-200">Listo</span>
+                  <span class="text-[9px] px-1.5 py-0.5 rounded bg-bronze-700/30 text-bronze-200">validado</span>
+                </div>
+              </div>
+              <div class="bg-forge-1 border border-forge-2 rounded-xl p-3">
+                <p class="font-serif text-sm">Bretonia · 1500 pts</p>
+                <p class="text-[10px] text-parchment-300 mt-1">borrador</p>
+              </div>
+              <div class="bg-forge-1 border border-forge-2 rounded-xl p-3 opacity-70">
+                <p class="font-serif text-sm">Enanos · 1000 pts</p>
+                <p class="text-[10px] text-parchment-300 mt-1">demo</p>
+              </div>
+            </div>
+            <div class="absolute bottom-3 left-3 right-3">
+              <div class="bg-blood-500 rounded-full py-2 text-center text-[11px] font-medium">+ Nueva lista</div>
+            </div>
+          </div>
+        </div>
+        <figcaption class="mt-5 text-center">
+          <p class="font-serif text-lg">Listas</p>
+          <p class="text-xs text-ink-muted max-w-[260px]">Armar, validar, guardar. La composición se chequea mientras escribís.</p>
+        </figcaption>
+      </figure>
+
+      <!-- Phone 2: Batalla -->
+      <figure class="flex flex-col items-center">
+        <div class="phone">
+          <div class="phone-screen text-parchment-50 font-sans text-xs">
+            <div class="flex justify-between items-center px-5 pt-3 pb-1 text-[10px] text-parchment-200">
+              <span>Turno 3</span>
+              <span class="font-mono">00:42:11</span>
+            </div>
+            <div class="px-4 pt-2 flex gap-1 text-[10px] text-parchment-300">
+              <div class="px-2 py-1">Listas</div>
+              <div class="px-2 py-1 rounded-full bg-blood-500 text-parchment-50">Batalla</div>
+              <div class="px-2 py-1">Reglas</div>
+            </div>
+            <div class="px-4 mt-3 flex justify-between items-end">
+              <div>
+                <p class="font-serif text-xl">Combate</p>
+                <p class="text-[10px] text-parchment-300">Imperio vs Bretonia · 2000 pts</p>
+              </div>
+              <span class="text-[9px] px-2 py-1 rounded bg-bronze-500/30 text-bronze-200">fase 5</span>
+            </div>
+
+            <div class="px-4 mt-3 space-y-2">
+              <p class="text-[10px] uppercase tracking-widest text-parchment-300">Apilados</p>
+              <div class="bg-forge-1 border border-forge-2 rounded-xl p-3">
+                <div class="flex justify-between">
+                  <p class="font-serif text-sm">Grandes Espadachines</p>
+                  <span class="font-mono text-bronze-200">S4 · T3</span>
+                </div>
+                <p class="text-[10px] text-parchment-300 mt-1">20 modelos · 17 heridas · Ld8</p>
+                <div class="mt-2 h-1.5 bg-forge-2 rounded">
+                  <div class="h-full bg-blood-500 rounded" style="width:85%"></div>
+                </div>
+                <p class="text-[9px] text-parchment-300 mt-1">17 / 20</p>
+              </div>
+              <div class="bg-forge-1 border border-forge-2 rounded-xl p-3">
+                <div class="flex justify-between">
+                  <p class="font-serif text-sm">Caballeros del Reino</p>
+                  <span class="font-mono text-bronze-200">S4 · T4</span>
+                </div>
+                <p class="text-[10px] text-parchment-300 mt-1">8 modelos · 4 heridas · Ld8</p>
+                <div class="mt-2 h-1.5 bg-forge-2 rounded">
+                  <div class="h-full bg-blood-500 rounded" style="width:50%"></div>
+                </div>
+                <p class="text-[9px] text-parchment-300 mt-1">4 / 8 · en combate</p>
+              </div>
+            </div>
+
+            <div class="absolute bottom-3 left-3 right-3 flex gap-2">
+              <div class="flex-1 bg-forge-2 border border-forge-3 rounded-full py-2 text-center text-[10px]">+ Herida</div>
+              <div class="flex-1 bg-blood-500 rounded-full py-2 text-center text-[10px] font-medium">Resolver</div>
+            </div>
+          </div>
+        </div>
+        <figcaption class="mt-5 text-center">
+          <p class="font-serif text-lg">Batalla</p>
+          <p class="text-xs text-ink-muted max-w-[260px]">El tracker de la partida en vivo. Unidades, heridas, fase, timer.</p>
+        </figcaption>
+      </figure>
+
+      <!-- Phone 3: Reglas -->
+      <figure class="flex flex-col items-center">
+        <div class="phone">
+          <div class="phone-screen text-parchment-50 font-sans text-xs">
+            <div class="flex justify-between items-center px-5 pt-3 pb-1 text-[10px] text-parchment-200">
+              <span>Offline ✓</span>
+              <span class="font-mono">942 reglas</span>
+            </div>
+            <div class="px-4 pt-2 flex gap-1 text-[10px] text-parchment-300">
+              <div class="px-2 py-1">Listas</div>
+              <div class="px-2 py-1">Batalla</div>
+              <div class="px-2 py-1 rounded-full bg-blood-500 text-parchment-50">Reglas</div>
+            </div>
+            <div class="px-4 mt-3">
+              <p class="font-serif text-xl">Reglamento</p>
+            </div>
+            <div class="px-4 mt-3">
+              <div class="bg-forge-1 border border-forge-2 rounded-full px-3 py-2 flex items-center gap-2">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-parchment-300">
+                  <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+                </svg>
+                <span class="text-[10px] text-parchment-300">carga a través de bosque</span>
+              </div>
+            </div>
+            <div class="px-4 mt-3 space-y-2">
+              <div class="bg-forge-1 border border-forge-2 rounded-xl p-3">
+                <p class="font-serif text-sm">Movement in detail</p>
+                <p class="text-[10px] text-parchment-300 mt-1 leading-relaxed">Una carga es legal si (1) el enemigo está en tu línea de vista al inicio de la fase de movimiento, (2) la distancia de carga cubre el obstáculo, y (3) hay una vía de aproximación de 1″ de ancho.</p>
+                <p class="text-[9px] italic text-bronze-200 mt-2">tow.whfb.app / Movement</p>
+              </div>
+              <div class="bg-forge-1 border border-forge-2 rounded-xl p-3">
+                <p class="font-serif text-sm">Troop types</p>
+                <p class="text-[10px] text-parchment-300 mt-1 leading-relaxed">La caballería carga a 14″. Si el frente está despejado, la unidad completa carga.</p>
+                <p class="text-[9px] italic text-bronze-200 mt-2">Reglamento TOW pág 102</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption class="mt-5 text-center">
+          <p class="font-serif text-lg">Reglas</p>
+          <p class="text-xs text-ink-muted max-w-[260px]">Mirror de tow.whfb.app. Busca aunque no tengas internet.</p>
+        </figcaption>
+      </figure>
+
+    </div>
+    <div class="scroll-divider mt-20"></div>
+  </section>
+
+  <!-- Unit card -->
+  <section id="unidad" class="max-w-6xl mx-auto px-6 md:px-8 py-16 md:py-20">
+    <div class="grid md:grid-cols-12 gap-12 items-start">
+      <div class="md:col-span-5">
+        <p class="text-xs uppercase tracking-[0.2em] text-ink-muted mb-4">03 — La carta de unidad</p>
+        <h2 class="font-serif text-4xl md:text-5xl leading-tight">Una unidad,<br/>toda la data.</h2>
+        <p class="mt-4 text-ink-soft">Stats en grande, equipo a la derecha, reglas especiales abajo, costo en puntos al pie. Nada de scroll horizontal, nada de popups escondidos. Lo que necesitás en la mesa está en la carta.</p>
+      </div>
+
+      <div class="md:col-span-7">
+        <div class="rounded-3xl bg-white border border-parchment-200 shadow-lifted p-6 md:p-8">
+
+          <div class="flex justify-between items-start gap-4">
+            <div>
+              <p class="text-[10px] uppercase tracking-[0.2em] text-bronze-700">Imperio · Infantería · Tropa</p>
+              <h3 class="font-serif text-3xl mt-1">Grandes Espadachines</h3>
+              <p class="text-sm text-ink-muted mt-1">Greatswords · 12 pts / modelo</p>
+            </div>
+            <div class="seal w-12 h-12 rounded-full flex items-center justify-center">
+              <span class="font-serif text-parchment-50 text-xl">G</span>
+            </div>
+          </div>
+
+          <div class="mt-6 grid grid-cols-3 sm:grid-cols-5 gap-2">
+            <div class="stat"><p class="text-[9px] text-ink-muted">M</p><p class="font-mono text-base font-bold">4</p></div>
+            <div class="stat"><p class="text-[9px] text-ink-muted">WS</p><p class="font-mono text-base font-bold">4</p></div>
+            <div class="stat"><p class="text-[9px] text-ink-muted">BS</p><p class="font-mono text-base font-bold">3</p></div>
+            <div class="stat"><p class="text-[9px] text-ink-muted">S</p><p class="font-mono text-base font-bold">3</p></div>
+            <div class="stat"><p class="text-[9px] text-ink-muted">T</p><p class="font-mono text-base font-bold">3</p></div>
+            <div class="stat"><p class="text-[9px] text-ink-muted">W</p><p class="font-mono text-base font-bold">1</p></div>
+            <div class="stat"><p class="text-[9px] text-ink-muted">I</p><p class="font-mono text-base font-bold">3</p></div>
+            <div class="stat"><p class="text-[9px] text-ink-muted">A</p><p class="font-mono text-base font-bold">1</p></div>
+            <div class="stat"><p class="text-[9px] text-ink-muted">Ld</p><p class="font-mono text-base font-bold">8</p></div>
+            <div class="stat"><p class="text-[9px] text-ink-muted">Sv</p><p class="font-mono text-base font-bold">3+</p></div>
+          </div>
+
+          <div class="mt-6 grid sm:grid-cols-2 gap-4">
+            <div>
+              <p class="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-2">Equipo</p>
+              <ul class="text-sm space-y-1">
+                <li class="flex justify-between border-b border-dashed border-parchment-200 py-1.5"><span>Gran arma</span><span class="text-xs text-ink-muted">arma a 2 manos</span></li>
+                <li class="flex justify-between border-b border-dashed border-parchment-200 py-1.5"><span>Armadura completa</span><span class="text-xs text-ink-muted">+3 save</span></li>
+                <li class="flex justify-between border-b border-dashed border-parchment-200 py-1.5"><span>Escudo</span><span class="text-xs text-ink-muted">+1 save en combate</span></li>
+              </ul>
+            </div>
+            <div>
+              <p class="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-2">Reglas especiales</p>
+              <ul class="text-sm space-y-1">
+                <li class="flex justify-between border-b border-dashed border-parchment-200 py-1.5"><span>Detestation</span><span class="text-xs text-ink-muted">Caos</span></li>
+                <li class="flex justify-between border-b border-dashed border-parchment-200 py-1.5"><span>State Troop</span><span class="text-xs text-ink-muted">+1 Ld en 6+</span></li>
+                <li class="flex justify-between border-b border-dashed border-parchment-200 py-1.5"><span>Drilled</span><span class="text-xs text-ink-muted">reformar gratis</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="mt-6 flex justify-between items-end">
+            <div>
+              <p class="text-[10px] uppercase tracking-[0.2em] text-ink-muted">Opciones de mando</p>
+              <p class="text-sm text-ink-soft mt-1">Champion · Standard · Musician · 0-1 por unidad</p>
+            </div>
+            <div class="text-right">
+              <p class="text-[10px] uppercase tracking-[0.2em] text-ink-muted">Total (20 modelos)</p>
+              <p class="font-serif text-3xl text-blood-500">240 <span class="text-base text-ink-muted">pts</span></p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <div class="scroll-divider mt-20"></div>
+  </section>
+
+  <!-- Oráculo -->
+  <section id="oraculo" class="max-w-6xl mx-auto px-6 md:px-8 py-16 md:py-20">
+    <div class="grid md:grid-cols-12 gap-12 items-start">
+      <div class="md:col-span-5">
+        <p class="text-xs uppercase tracking-[0.2em] text-ink-muted mb-4">04 — El oráculo</p>
+        <h2 class="font-serif text-4xl md:text-5xl leading-tight">Preguntá.<br/>No discutas.</h2>
+        <p class="mt-4 text-ink-soft">Cuando hay una situación crítica y los dos jugadores dudan, el oráculo responde con la regla, la cita y la interpretación más probable. Vos decidís si la aceptás o la overridás — pero ya no discutís 10 minutos en la mesa.</p>
+        <ul class="mt-6 space-y-2 text-sm text-ink-soft">
+          <li class="flex gap-3"><span class="text-blood-500">·</span><span>Responde con base en la KB de TOW + erratas + FAQs.</span></li>
+          <li class="flex gap-3"><span class="text-blood-500">·</span><span>Si no sabe, lo dice. No inventa.</span></li>
+          <li class="flex gap-3"><span class="text-blood-500">·</span><span>Funciona offline con la KB cacheada.</span></li>
+          <li class="flex gap-3"><span class="text-blood-500">·</span><span>El prompt es editable y versionado.</span></li>
+        </ul>
+      </div>
+
+      <div class="md:col-span-7">
+        <div class="rounded-3xl bg-parchment-100 border border-parchment-200 p-5 md:p-7 space-y-4 shadow-soft">
+
+          <!-- Ask -->
+          <div class="flex justify-end">
+            <div class="bubble-ask rounded-2xl px-4 py-3 max-w-md">
+              <p class="text-[10px] uppercase tracking-widest text-bronze-700 mb-1">Vos</p>
+              <p class="text-sm text-ink">Mi Caballero del Reino quiere cargar a mis propios Espadachines que están en un bosque. ¿Carga legal? ¿El bosque le da cover?</p>
+            </div>
+          </div>
+
+          <!-- Answer -->
+          <div class="flex justify-start">
+            <div class="bubble-answer rounded-2xl px-4 py-3 max-w-md">
+              <p class="text-[10px] uppercase tracking-widest text-blood-500 mb-1">Dobleuno</p>
+              <p class="text-sm text-ink leading-relaxed">La carga es legal: el bosque no impide la declaración de carga, solo afecta el movimiento. Eso sí, mover a través de bosque cuesta 2× distancia. Con 14″ de carga necesitás estar a 14″ o menos del frente enemigo al final de tu movimiento.</p>
+              <p class="text-sm text-ink leading-relaxed mt-2">Cover (bonificador +1 al save) lo da el bosque <em>solo</em> contra disparos, no contra combate cuerpo a cuerpo. Si la carga se completa, no hay cover.</p>
+              <p class="text-[10px] italic text-ink-muted mt-3">Fuente: Reglamento TOW · Movement in detail · tow.whfb.app / Movement / Cover</p>
+            </div>
+          </div>
+
+          <!-- Ask 2 -->
+          <div class="flex justify-end">
+            <div class="bubble-ask rounded-2xl px-4 py-3 max-w-md">
+              <p class="text-[10px] uppercase tracking-widest text-bronze-700 mb-1">Vos</p>
+              <p class="text-sm text-ink">¿Y el capitán en la unidad le da +1 al ataque por cada fila adicional hasta un máximo de 2?</p>
+            </div>
+          </div>
+
+          <!-- Answer 2 -->
+          <div class="flex justify-start">
+            <div class="bubble-answer rounded-2xl px-4 py-3 max-w-md">
+              <p class="text-[10px] uppercase tracking-widest text-blood-500 mb-1">Dobleuno</p>
+              <p class="text-sm text-ink leading-relaxed">Sí: Capitán de Infantería del Imperio da +1A por fila completa después de la primera, máximo +2A. Con 4 filas, +2A. No stacka con el bonus de Champion.</p>
+              <p class="text-[10px] italic text-ink-muted mt-3">Fuente: Reglamento TOW · Capitanes · FAQ 2025-04</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <div class="scroll-divider mt-20"></div>
+  </section>
+
+  <!-- Roadmap -->
+  <section id="roadmap" class="max-w-6xl mx-auto px-6 md:px-8 py-16 md:py-20">
+    <div class="grid md:grid-cols-12 gap-12">
+      <div class="md:col-span-5">
+        <p class="text-xs uppercase tracking-[0.2em] text-ink-muted mb-4">05 — Lo que viene</p>
+        <h2 class="font-serif text-4xl md:text-5xl leading-tight">5 a 7 semanas<br/>al MVP.</h2>
+        <p class="mt-4 text-ink-soft">Una ola por semana, demo al final de cada una. Vos jugás en mesa y me das feedback mientras codeo.</p>
+        <div class="mt-6 inline-flex flex-col gap-1 text-sm text-ink-soft font-mono bg-white border border-parchment-200 rounded-2xl p-4 shadow-soft">
+          <p><span class="text-ink-muted">cliente</span>  · Vite · React 18 · TS · Tailwind · PWA</p>
+          <p><span class="text-ink-muted">server</span>  · Node · Express · Postgres · pgvector</p>
+          <p><span class="text-ink-muted">AI</span>       · tow.whfb.app (mirror) · RAG · LLM API</p>
+        </div>
+      </div>
+
+      <div class="md:col-span-7">
+        <ol class="timeline">
+          <li>
+            <strong class="font-serif text-xl">Ola 0 · Decisiones</strong>
+            <p class="text-sm text-ink-soft mt-1">Stack, alcance, facciones, prompt. Cierre del ADR-003. Aprobación de este portal.</p>
+            <p class="text-[10px] uppercase tracking-widest text-blood-500 mt-2">en curso</p>
+          </li>
+          <li>
+            <strong class="font-serif text-xl">Ola 1 · Foundation</strong>
+            <p class="text-sm text-ink-soft mt-1">Scaffold del cliente, auth básica, Dexie local, PWA installable, dark mode por default.</p>
+          </li>
+          <li>
+            <strong class="font-serif text-xl">Ola 2 · KB local</strong>
+            <p class="text-sm text-ink-soft mt-1">Mirror de tow.whfb.app, parser HTML→JSON, búsqueda offline. Empire + Bretonia.</p>
+          </li>
+          <li>
+            <strong class="font-serif text-xl">Ola 3 · List builder</strong>
+            <p class="text-sm text-ink-soft mt-1">Composición validada en tiempo real, magic items, save/load, export.</p>
+          </li>
+          <li>
+            <strong class="font-serif text-xl">Ola 4 · Battle tracker</strong>
+            <p class="text-sm text-ink-soft mt-1">Las 6 fases, estado de unidades, combate, magia, save/load, post-game.</p>
+          </li>
+          <li>
+            <strong class="font-serif text-xl">Ola 5 · Oráculo + polish</strong>
+            <p class="text-sm text-ink-soft mt-1">Rules oracle con RAG, deploy, Lighthouse mobile, README.</p>
+          </li>
+          <li>
+            <strong class="font-serif text-xl">Fase 2 · Stats + coaching</strong>
+            <p class="text-sm text-ink-soft mt-1">Historial, agregados, asesor post-partida, 2-3 facciones más.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section id="cta" class="border-t border-parchment-200/60 bg-parchment-100/60">
+    <div class="max-w-6xl mx-auto px-6 md:px-8 py-16 grid md:grid-cols-12 gap-10 items-center">
+      <div class="md:col-span-7">
+        <h3 class="font-serif text-3xl md:text-4xl leading-tight">¿La piel te cierra?</h3>
+        <p class="mt-3 text-ink-soft max-w-xl">Esto es lo que va a sentir Dobleuno cuando lo abras. Si te gusta, arrancamos Ola 1. Si querés cambiar el color, el tono, el logo, o el flujo, lo iteramos antes de codear.</p>
+      </div>
+      <div class="md:col-span-5 flex md:justify-end gap-3 flex-wrap">
+        <a href="#top" class="cta-ghost text-ink px-5 py-3 rounded-full text-sm">Volver arriba</a>
+        <a href="#roadmap" class="cta-primary text-parchment-50 px-5 py-3 rounded-full text-sm font-medium">Arrancar Ola 1</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-parchment-200/60">
+    <div class="max-w-6xl mx-auto px-6 md:px-8 py-8 flex flex-wrap items-center justify-between gap-3 text-xs text-ink-muted">
+      <p>© 2026 Dobleuno · Hecho en la mesa, no en un sprint.</p>
+      <p>Fuente de reglas: <a class="underline underline-offset-2 hover:text-blood-500" href="https://tow.whfb.app">tow.whfb.app</a> · Reglamento oficial de Games Workshop</p>
+    </div>
+  </footer>
+
+</body>
+</html>
