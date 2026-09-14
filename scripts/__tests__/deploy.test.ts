@@ -93,10 +93,11 @@ describe('Dockerfile', () => {
         .map((k) => k.slice(0, k.indexOf('/node_modules/'))),
     );
 
+    // `COPY --from=<stage> <origen> <destino>`: el origen es el tercer token.
     const copiadas = sinComentarios(dockerfile)
       .split('\n')
       .filter((l) => /^COPY\s+--from=/.test(l.trim()))
-      .map((l) => l.trim().split(/\s+/)[1]!);
+      .map((l) => l.trim().split(/\s+/)[2]!);
 
     // `COPY --from=<stage> /app ./` cubre cualquier anidamiento presente y
     // futuro, que es la razón de copiar el árbol entero.
