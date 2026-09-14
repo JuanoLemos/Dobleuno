@@ -8,6 +8,21 @@ import type { KBUnit, FactionId } from '@dobleuno/shared';
 
 import { unitsApi } from '../../lib/units-api.js';
 
+/**
+ * Las categorías que el catálogo puede distinguir de verdad.
+ *
+ * Eran seis (lord/hero/core/special/rare/all), heredadas del tipo `KBUnit`. El
+ * corpus de tow.whfb.app no publica la categoría de lista de ejército, así que
+ * cuatro de esos botones filtraban a cero. Ver el mapeo en lib/units-api.ts.
+ */
+type Categoria = 'all' | 'hero' | 'core';
+
+const ETIQUETA_CATEGORIA: Record<Categoria, string> = {
+  all: 'Todas',
+  hero: 'Personajes',
+  core: 'Tropas',
+};
+
 interface UnitPickerModalProps {
   faction: FactionId;
   onSelect: (unit: KBUnit) => void;
@@ -18,16 +33,23 @@ export function UnitPickerModal({ faction, onSelect, onClose }: UnitPickerModalP
   const [units, setUnits] = useState<KBUnit[]>([]);
   const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState<string>('all');
+  const [error, setError] = useState<string | null>(null);
+  const [category, setCategory] = useState<Categoria>('all');
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       setLoading(true);
-      const res = await unitsApi.list(faction);
-      if (!cancelled) {
-        setUnits(res.units);
-        setLoading(false);
+      setError(null);
+      try {
+        const res = await unitsApi.list(faction);
+        if (!cancelled) setUnits(res.units);
+      } catch (err) {
+        // Sin base, /api/units responde 503. Antes esto quedaba como una
+        // promesa rechazada y el modal se quedaba en "Cargando…" para siempre.
+        if (!cancelled) setError((err as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
@@ -68,7 +90,7 @@ export function UnitPickerModal({ faction, onSelect, onClose }: UnitPickerModalP
           />
         </div>
         <div className="mt-3 flex gap-1 overflow-x-auto text-xs">
-          {(['all', 'lord', 'hero', 'core', 'special', 'rare'] as const).map((c) => (
+          {(Object.keys(ETIQUETA_CATEGORIA) as Categoria[]).map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c)}
@@ -76,7 +98,7 @@ export function UnitPickerModal({ faction, onSelect, onClose }: UnitPickerModalP
                 category === c ? 'bg-blood-500 text-parchment-50' : 'bg-forge-2 text-parchment-300'
               }`}
             >
-              {c === 'all' ? 'Todas' : c}
+              {ETIQUETA_CATEGORIA[c]}
             </button>
           ))}
         </div>
@@ -85,6 +107,10 @@ export function UnitPickerModal({ faction, onSelect, onClose }: UnitPickerModalP
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
           <p className="text-center text-sm text-parchment-300">Cargando…</p>
+        ) : error ? (
+          <p className="text-center text-sm text-blood-200">
+            No se pudo traer el catálogo: {error}
+          </p>
         ) : filtered.length === 0 ? (
           <p className="text-center text-sm text-parchment-300">Sin resultados</p>
         ) : (

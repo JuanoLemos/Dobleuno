@@ -1,0 +1,17 @@
+# Dobleuno — política de indexación
+#
+# El Codex publica una versión navegable (y, cuando corre el traductor, en
+# español) del reglamento de Warhammer: The Old World. Ese contenido deriva de
+# publicaciones de Games Workshop, y doc/legal/ANALISIS-LICENCIAS-COMPLIANCE.md
+# lo marca como riesgo latente. Una traducción pública E INDEXADA es la
+# configuración más expuesta posible, así que se resigna el SEO: la app es
+# pública y usable, pero no se ofrece a los buscadores.
+#
+# Esto es una petición, no un control de acceso: quien ignore robots.txt entra
+# igual. El `noindex` que cada ruta emite en su <meta> es la otra mitad.
+
+User-agent: *
+Disallow: /reglas
+Disallow: /items
+Disallow: /sobre
+Allow: /$

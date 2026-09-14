@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { IntlProvider } from 'react-intl';
+import { HelmetProvider } from 'react-helmet-async';
 import { registerSW } from 'virtual:pwa-register';
 
 import App from './App.js';
@@ -21,10 +22,12 @@ const initialLocale: Locale = env.VITE_DEFAULT_LOCALE;
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <IntlProvider locale={initialLocale} messages={locales[initialLocale]} defaultLocale="es-AR">
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </IntlProvider>
+    <HelmetProvider>
+      <IntlProvider locale={initialLocale} messages={locales[initialLocale]} defaultLocale="es-AR">
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </IntlProvider>
+    </HelmetProvider>
   </React.StrictMode>,
 );

@@ -11,6 +11,84 @@ _Nada sin versionar todavía._
 
 ---
 
+## [1.2.0] — 2026-09-14
+
+**Ola 11 — Codex en React** (ADR-011). La ola empezó como un porteo de UI y terminó siendo,
+primero, conseguir el contenido: el pipeline llevaba dos meses terminando en verde sin bajar una
+sola regla.
+
+### Added
+- **El corpus real**: 1796 reglas, 751 items mágicos y 577 unidades de `tow.whfb.app`,
+  3124 páginas bajadas sin una falla.
+- **Codex en React** — `/reglas`, `/reglas/:slug`, `/items`, `/items/:slug`, `/sobre`, con piel
+  `codex` aplicada por ruta (`data-skin` en el body, puesto y sacado por `CodexLayout`).
+  - Búsqueda y paginado server-side: con 1796 reglas, filtrar el DOM no alcanza.
+  - Navegación por sección del reglamento y por familia de item, con conteos reales.
+  - Cache en Dexie (v3): lo que se navegó se lee sin señal.
+  - `@media print` para llevar una regla a la mesa.
+  - El oráculo queda embebido como panel colapsable, no como pestaña aparte (ADR-007).
+- `scripts/validate-corpus.ts` — corta el pipeline si el corpus sale degenerado. Es la pieza que
+  impide que el incidente de abajo se repita en silencio.
+- `apps/server/src/__tests__/codex-routes.test.ts` — 14 tests de ruteo. Un 503 prueba que el path
+  matcheó; un 404, que no. Es exactamente el bug que no se detectó durante dos meses.
+- `scripts/__tests__/parse-tow.test.ts` — tests del parser de verdad, importándolo.
+- Columnas `name_es` / `description_es` (migración `0007`), nullables: null significa "todavía no
+  se tradujo", que es distinto de "traducido igual al inglés".
+- `apps/web/public/robots.txt` y `<meta robots="noindex">` en las rutas del Codex.
+
+### Fixed
+- **El mirror nunca capturó contenido.** Los 39 HTML de `data/raw/rule/empire/` tenían el mismo
+  MD5: eran el shell de carga de Next.js. La causa era la URL (`/rules/<slug>.html` en vez de
+  `/<ruleType>/<slug>`), no el parser. El manifest ahora sale de los tres sitemaps del sitio en
+  vez de 39 slugs hardcodeados.
+- **`/api/rules/search` y `/api/kb/stats` eran 404 desde la Ola 2.** El router se monta en `/api`
+  y declaraba `/search` y `/stats`. No había un solo test que tocara estas rutas.
+- **El seed nunca pobló `special_rules`, `magic_items` ni `units`.** Escribía solo `kb_chunks`, a
+  partir de 9 unidades hardcodeadas. Por eso las listas volvían vacías con la base sana.
+- **Las entradas embebidas se descartaban.** 523 reglas embeben una, y en las armas esa entrada
+  *es* el perfil: "Great Weapon" quedaba sin alcance, fuerza ni penetración. Medido sobre las
+  1796: 742 quedan más completas, 1039 igual, 2 peor. Reglas sin texto: de 4 a 0.
+- **Los párrafos partían las frases** en cada link: `"durante la 
+fase de Combate
+, el modelo"`.
+- **Las reglas especiales de las unidades venían pegadas**: `"Counter ChargeFirst ChargeSwiftstride"`
+  — tres reglas ilegibles e imposibles de volver a separar, en ~500 unidades.
+- `parseRobotsTxt` trataba los patrones como prefijos literales: respetaba `robots.txt` por
+  casualidad, y un `Disallow: /*.json$` no lo hubiera frenado.
+- El traductor leía `special-rules.json` con campos del corpus viejo; habría fallado en el primer
+  archivo del pipeline nuevo.
+- El unit picker del list builder se quedaba en "Cargando…" para siempre ante un 503, y ofrecía
+  cuatro filtros (lord/core/special/rare) que el corpus no puede distinguir: el sitio no publica
+  la categoría de lista de ejército. Ahora son "Personajes" y "Tropas", que sí existen.
+
+### Changed
+- Taxonomía en texto libre (migraciones `0005` y `0006`): fuera los enums de 2 facciones, 5
+  categorías, 8 tipos de regla y 4 rarezas. El corpus real tiene 31 ejércitos, 31 secciones de
+  reglamento y 70 familias de item, y los statlines usan `-`, `(+1)` y `2D6`.
+- `npm run parse:test` entra a CI. Los tests de `scripts/` no corrían: no es un workspace.
+- El corpus se siembra desde `data/translated/` cuando existe, y desde `data/processed/` si no.
+
+### Removed
+- **`portal/`** (29 archivos + 33 MB de brand duplicado). Nunca se desplegó: no estaba en CI, ni
+  en `docker-compose.yml`, ni en la guía de deploy. Última versión en el tag `v1.1.0`, commit
+  `babd1591bf854f2153656d7e2201c63706558e21`.
+- `apps/web/src/routes/Reglas.tsx`, `components/reglas/{RuleCard,MagicItemCard,UnitCard}.tsx`,
+  `lib/kb-sync.ts`, `lib/seed-units.ts`.
+- `scripts/parser/` — un test que re-implementaba el parser adentro del test y lo corría contra
+  fixtures HTML escritos a mano. Pasaba en verde mientras el parser real producía basura, porque
+  no lo estaba probando.
+
+### Deuda conocida
+- **La carga a Postgres no está verificada**: no hay Docker en la máquina del autor, así que
+  `db:migrate` y `kb:seed` contra la base real quedan sin correr. Las migraciones `0005`–`0007`
+  dropean y recrean tres tablas.
+- El corpus está **en inglés**: el traductor está adaptado pero no corrió (2547 entradas de
+  DeepSeek). El Codex muestra inglés y lo dice en `/sobre`.
+- Los unfurls de Discord y WhatsApp no ven los meta tags: esos bots no ejecutan JS.
+- Las unidades están en la base y en la API, pero no tienen UI en el Codex.
+
+---
+
 ## [1.1.0] — 2026-09-14
 
 ### Added

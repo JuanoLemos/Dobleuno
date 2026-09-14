@@ -6,8 +6,14 @@
 | **Estado** | Accepted |
 | **Fecha** | 2026-07-10 |
 | **Supersedes** | D8 (PLAN-OLEADAS) — "Portal HTML local por ahora" |
-| **Superseded by** | N/A |
+| **Superseded by** | ADR-011 (cláusula de SEO y retiro del portal) |
 | **Impacto** | Un solo deploy para el usuario autenticado. Auth, estado y routing viven en React. Migración futura del portal a React con SSR (Ola 11) si crece el tráfico SEO. |
+
+> **Nota (Ola 11, 2026-09-14):** la cláusula "el portal se mantiene como anexo público/SEO" quedó
+> superada por el [ADR-011](ADR-011-codex-react-noindex.md). El fundamento de acá — que las reglas
+> son contenido estático ideal para indexar — suponía que el portal tenía reglas publicadas. No las
+> tenía: el mirror nunca capturó contenido y el portal nunca se desplegó. El portal se retiró y el
+> Codex se sirve desde React, sin indexar.
 
 ## Contexto
 

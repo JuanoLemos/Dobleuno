@@ -1,0 +1,310 @@
+/**
+ * Piel Codex — Ola 11.
+ *
+ * Port de portal/src/styles/global.css (Astro + Tailwind v4) a la app React
+ * (Tailwind v3). El sistema de pieles son custom properties, así que es
+ * agnóstico de la versión de Tailwind; lo que cambia es cómo se declaran.
+ *
+ * ── Dos reglas que no son negociables ────────────────────────────────────
+ *
+ * 1. TODA clase lleva el prefijo `codex-`. `.scroll-divider`, `.cta-primary`,
+ *    `.cta-ghost` y `.grain` YA EXISTEN en styles/portal.css con definiciones
+ *    distintas, y ese archivo lo usa la Home cream. Importar el CSS del portal
+ *    tal cual rompe `/` en silencio: mismo nombre, otro diseño.
+ *
+ * 2. Los tokens viven bajo `body[data-skin='codex']`, no en `:root`. El body de la
+ *    app es dark forge y no debe moverse cuando el usuario entra al Codex y
+ *    vuelve. CodexLayout pone y saca el atributo.
+ *
+ * Solo dark: el toggle light/dark quedó fuera del MVP (ver el plan de la ola).
+ */
+
+body[data-skin='codex'] {
+  --codex-bg: #100c08;
+  --codex-bg-elev: #1a1410;
+  --codex-fg: #e6dcc8;
+  --codex-muted: #7a7165;
+  --codex-accent: #a08550;
+  --codex-border: rgba(230, 220, 200, 0.22);
+  --codex-line: rgba(230, 220, 200, 0.1);
+  --codex-grain-opacity: 0.04;
+  --codex-grain-color: rgba(230, 220, 200, 0.6);
+
+  background: var(--codex-bg);
+  color: var(--codex-fg);
+}
+
+/* El grano va como pseudo-elemento fixed, nunca como opacity sobre el body.
+   Regresión de la Ola 0.6: bajarle la opacidad al body dejaba texto fantasma. */
+body[data-skin='codex']::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(var(--codex-grain-color) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: var(--codex-grain-opacity);
+}
+
+/* ===== Superficie ===== */
+
+.codex-surface {
+  background: var(--codex-bg);
+  color: var(--codex-fg);
+  min-height: 100dvh;
+  position: relative;
+  z-index: 2;
+}
+
+.codex-surface h1,
+.codex-surface h2,
+.codex-surface h3 {
+  font-family: 'DM Serif Display', Georgia, serif;
+  color: var(--codex-fg);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+}
+
+.codex-surface a {
+  color: var(--codex-accent);
+  text-decoration: none;
+}
+.codex-surface a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.codex-surface ::selection {
+  background: var(--codex-accent);
+  color: var(--codex-bg);
+}
+
+/* ===== Contenedores ===== */
+
+.codex-narrow {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+.codex-wide {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ===== Divisores ===== */
+
+.codex-divider {
+  height: 1px;
+  background: var(--codex-line);
+  border: 0;
+  margin: 0;
+}
+.codex-divider-accent {
+  height: 1px;
+  background: var(--codex-accent);
+  opacity: 0.5;
+  border: 0;
+  margin: 0;
+}
+
+/* ===== Tags ===== */
+
+.codex-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--codex-border);
+  color: var(--codex-muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+.codex-tag-accent {
+  color: var(--codex-accent);
+  border-color: var(--codex-accent);
+}
+.codex-tag-ink {
+  background: var(--codex-fg);
+  color: var(--codex-bg);
+  border-color: var(--codex-fg);
+}
+
+/* ===== Botones ===== */
+
+.codex-cta {
+  display: inline-block;
+  background: var(--codex-accent);
+  color: var(--codex-bg);
+  padding: 0.65rem 1.5rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  border: 0;
+  cursor: pointer;
+  transition: opacity 200ms ease;
+}
+.codex-cta:hover {
+  opacity: 0.85;
+  text-decoration: none;
+}
+
+.codex-cta-ghost {
+  display: inline-block;
+  background: transparent;
+  color: var(--codex-fg);
+  border: 1px solid var(--codex-border);
+  padding: 0.5rem 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 200ms ease,
+    color 200ms ease;
+}
+.codex-cta-ghost:hover {
+  border-color: var(--codex-fg);
+  text-decoration: none;
+}
+
+/* ===== Bloque con borde lateral — la unidad de lectura del Codex ===== */
+
+.codex-block {
+  border-left: 2px solid var(--codex-accent);
+  padding: 0.75rem 0 0.75rem 1.25rem;
+  background: transparent;
+  transition: background 200ms ease;
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+.codex-block:hover {
+  background: var(--codex-bg-elev);
+}
+a.codex-block:hover {
+  text-decoration: none;
+}
+
+/* ===== Etiqueta de sección — "§ I" ===== */
+
+.codex-label {
+  display: inline-block;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--codex-muted);
+  font-weight: 500;
+}
+
+/* ===== Capitular ===== */
+
+.codex-dropcap::first-letter {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 3.5rem;
+  line-height: 0.85;
+  float: left;
+  margin: 0.2rem 0.75rem 0 0;
+  color: var(--codex-accent);
+  font-weight: 400;
+}
+
+/* ===== Buscador ===== */
+
+.codex-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--codex-bg-elev);
+  border: 1px solid var(--codex-border);
+  padding: 0.5rem 1rem;
+  width: 100%;
+  max-width: 480px;
+  transition: border-color 200ms ease;
+}
+.codex-search:focus-within {
+  border-color: var(--codex-accent);
+}
+.codex-search input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 0.95rem;
+  color: var(--codex-fg);
+  font-family: inherit;
+  min-width: 0;
+}
+.codex-search input::placeholder {
+  color: var(--codex-muted);
+}
+
+/* ===== Hero ===== */
+
+.codex-hero {
+  background-image: url('/brand/hero-codex.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+  overflow: hidden;
+}
+.codex-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(16, 12, 8, 0.72) 0%,
+    rgba(16, 12, 8, 0.52) 60%,
+    rgba(16, 12, 8, 0.9) 100%
+  );
+}
+
+/* ===== Texto secundario ===== */
+
+.codex-muted {
+  color: var(--codex-muted);
+}
+.codex-accent {
+  color: var(--codex-accent);
+}
+
+/* ===== Impresión — una regla al lado de la mesa =====
+   El propósito de la ficha impresa es el texto. Header, nav, buscador y el
+   panel del oráculo no viajan al papel. */
+
+@media print {
+  .codex-no-print,
+  header,
+  nav,
+  footer {
+    display: none !important;
+  }
+  body[data-skin='codex']::before {
+    display: none !important;
+  }
+  body[data-skin='codex'],
+  .codex-surface {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .codex-surface h1,
+  .codex-surface h2,
+  .codex-surface h3 {
+    color: #000 !important;
+  }
+  .codex-block {
+    border-left-color: #000 !important;
+  }
+  .codex-print-only {
+    display: block !important;
+  }
+}
+
+.codex-print-only {
+  display: none;
+}

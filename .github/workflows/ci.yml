@@ -72,6 +72,12 @@ jobs:
       - name: Seed KB
         run: npm run kb:seed -w @dobleuno/server -- --allow-missing
 
+      # Los tests del pipeline (scripts/) no corren con `npm test -ws`: scripts/
+      # no es un workspace. Quedaban afuera de CI, justo donde vivió dos meses
+      # el bug del mirror.
+      - name: Pipeline tests
+        run: npm run parse:test
+
       - name: Server tests
         run: npm test -w @dobleuno/server
 

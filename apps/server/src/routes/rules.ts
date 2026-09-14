@@ -1,12 +1,36 @@
 /**
- * Endpoints de Knowledge Base (KB) — unidades, reglas, items.
- * Datos parseados desde tow.whfb.app (Ola 2).
- * Búsqueda con Postgres full-text (tsvector + GIN) cuando esté disponible.
+ * API del Codex — reglas especiales, items mágicos y unidades.
+ *
+ * El corpus completo de tow.whfb.app vive en Postgres desde la Ola 11: 1796
+ * reglas, 751 items, 577 unidades. A ese tamaño la lista entera no viaja en
+ * una respuesta, así que todo lista con paginado y filtro server-side.
+ *
+ * ── Rutas ────────────────────────────────────────────────────────────────
+ *   GET /api/rules            ?q= &section= &page= &limit=
+ *   GET /api/rules/sections   facetas con conteo, para la navegación
+ *   GET /api/rules/:slug
+ *   GET /api/items            ?q= &type= &family= &page= &limit=
+ *   GET /api/items/types
+ *   GET /api/items/:slug
+ *   GET /api/units            ?q= &army= &category= &page= &limit=
+ *   GET /api/units/:id
+ *   GET /api/kb/search        búsqueda combinada
+ *   GET /api/kb/stats
+ *
+ * ── Por qué cambiaron los paths ──────────────────────────────────────────
+ *
+ * El router se monta en `/api` (app.ts), pero declaraba `/search` y `/stats`.
+ * O sea que los endpoints reales eran `/api/search` y `/api/stats`, mientras
+ * el cliente llamaba a `/api/rules/search` y `/api/kb/stats`: 404 desde la Ola
+ * 2, sin un solo test que tocara estas rutas. Ahora los prefijos están
+ * escritos completos acá, que es donde se leen.
  */
 
-import { Router } from 'express';
-import { eq, ilike, or, sql } from 'drizzle-orm';
+import { Router, type Response } from 'express';
+import { and, arrayContains, asc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
+
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import { db, isDbHealthy } from '../db/client.js';
 import { units, specialRules, magicItems } from '../db/schema/kb.js';
@@ -14,87 +38,307 @@ import { log } from '../lib/logger.js';
 
 export const rulesRouter: Router = Router();
 
-const SearchSchema = z.object({
-  q: z.string().optional(),
-  /** Ejército: 'empire-of-man', 'kingdom-of-bretonnia', … */
+/** Sin base no hay Codex: 503 explícito en vez de una lista vacía. */
+async function exigirDb(res: Response): Promise<boolean> {
+  if (await isDbHealthy()) return true;
+  res.status(503).json({
+    error: 'Database not available',
+    hint: 'Levantar Postgres con `npm run db:up` y migrar con `npm run db:migrate`',
+  });
+  return false;
+}
+
+const PaginaSchema = z.object({
+  q: z.string().max(120).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+});
+
+const ReglasSchema = PaginaSchema.extend({
+  /** Sección del reglamento, tal como la publica el sitio. */
+  section: z.string().max(60).optional(),
+});
+
+const ItemsSchema = PaginaSchema.extend({
+  type: z.string().max(60).optional(),
+  /**
+   * Familia del item ('arcane-items', 'armour-runes', …). Es distinta de
+   * `type`: un item tiene un tipo y puede estar en varias familias, y es la
+   * familia la que decide si entra o no en una lista de ejército.
+   */
+  family: z.string().max(60).optional(),
+});
+
+const UnidadesSchema = PaginaSchema.extend({
   army: z.string().max(60).optional(),
-  /** Categoría tal como la publica el sitio: 'Character', 'Core', … */
-  category: z.string().max(40).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  category: z.string().max(60).optional(),
 });
 
 /**
- * GET /api/rules/search?q=great+weapon&faction=empire
- * Busca en unidades, reglas especiales y magic items.
+ * Filtro de texto libre.
+ *
+ * `search_text` es `name + cuerpo` en minúsculas, escrito por el seed. Se busca
+ * ahí y no en `name` para que "flanco" encuentre la regla que lo menciona, no
+ * solo la que se llama así. ILIKE alcanza a esta escala; si deja de alcanzar,
+ * el índice GIN ya está previsto en el schema.
  */
-rulesRouter.get('/search', async (req, res) => {
-  const parsed = SearchSchema.safeParse(req.query);
+function filtroTexto(columna: AnyPgColumn, q?: string): SQL | undefined {
+  const termino = q?.trim();
+  return termino ? ilike(columna, `%${termino.toLowerCase()}%`) : undefined;
+}
+
+function combinar(condiciones: Array<SQL | undefined>): SQL | undefined {
+  const activas = condiciones.filter((c): c is SQL => c !== undefined);
+  if (activas.length === 0) return undefined;
+  return activas.length === 1 ? activas[0] : and(...activas);
+}
+
+// ─── Reglas ───────────────────────────────────────────────────────────────
+
+// Va antes de /rules/:slug, o "sections" se lee como un slug.
+rulesRouter.get('/rules/sections', async (_req, res) => {
+  if (!(await exigirDb(res))) return;
+  try {
+    const filas = await db
+      .select({ section: specialRules.ruleType, count: sql<number>`count(*)::int` })
+      .from(specialRules)
+      .groupBy(specialRules.ruleType)
+      .orderBy(asc(specialRules.ruleType));
+    res.json({ sections: filas.filter((f) => f.section) });
+  } catch (err) {
+    log.error('Rule sections failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to list sections' });
+  }
+});
+
+rulesRouter.get('/rules', async (req, res) => {
+  const parsed = ReglasSchema.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: 'Bad request', details: parsed.error.flatten() });
     return;
   }
+  if (!(await exigirDb(res))) return;
 
-  const { q, army, category, limit } = parsed.data;
-
-  if (!(await isDbHealthy())) {
-    res.status(503).json({
-      error: 'Database not available',
-      hint: 'Levantar Postgres con `npm run db:up` y migrar con `npm run db:migrate`',
-    });
-    return;
-  }
+  const { q, section, page, limit } = parsed.data;
+  const where = combinar([
+    filtroTexto(specialRules.searchText, q),
+    section ? eq(specialRules.ruleType, section) : undefined,
+  ]);
 
   try {
-    const results: {
-      units: Array<typeof units.$inferSelect>;
-      rules: Array<typeof specialRules.$inferSelect>;
-      items: Array<typeof magicItems.$inferSelect>;
-    } = { units: [], rules: [], items: [] };
+    const [total] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(specialRules)
+      .where(where);
+    const filas = await db
+      .select()
+      .from(specialRules)
+      .where(where)
+      .orderBy(asc(specialRules.name))
+      .limit(limit)
+      .offset((page - 1) * limit);
+    res.json({ total: total?.n ?? 0, page, limit, rules: filas });
+  } catch (err) {
+    log.error('Rules list failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to list rules' });
+  }
+});
 
-    // Search units
-    if (!category || ['lord', 'hero', 'core', 'special', 'rare'].includes(category)) {
-      const unitConditions = [];
-      if (q) unitConditions.push(ilike(units.name, `%${q}%`));
-      if (army) unitConditions.push(eq(units.army, army));
-      if (category) unitConditions.push(eq(units.unitCategory, category));
-      results.units = await db
+rulesRouter.get('/rules/:slug', async (req, res) => {
+  if (!(await exigirDb(res))) return;
+  try {
+    const filas = await db
+      .select()
+      .from(specialRules)
+      .where(or(eq(specialRules.slug, req.params.slug), eq(specialRules.id, req.params.slug)))
+      .limit(1);
+    if (filas.length === 0) {
+      res.status(404).json({ error: 'Rule not found' });
+      return;
+    }
+    res.json(filas[0]);
+  } catch (err) {
+    log.error('Rule fetch failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to fetch rule' });
+  }
+});
+
+// ─── Items mágicos ────────────────────────────────────────────────────────
+
+rulesRouter.get('/items/types', async (_req, res) => {
+  if (!(await exigirDb(res))) return;
+  try {
+    const filas = await db
+      .select({ type: magicItems.type, count: sql<number>`count(*)::int` })
+      .from(magicItems)
+      .groupBy(magicItems.type)
+      .orderBy(asc(magicItems.type));
+    res.json({ types: filas.filter((f) => f.type) });
+  } catch (err) {
+    log.error('Item types failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to list types' });
+  }
+});
+
+rulesRouter.get('/items', async (req, res) => {
+  const parsed = ItemsSchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Bad request', details: parsed.error.flatten() });
+    return;
+  }
+  if (!(await exigirDb(res))) return;
+
+  const { q, type, family, page, limit } = parsed.data;
+  const where = combinar([
+    filtroTexto(magicItems.searchText, q),
+    type ? eq(magicItems.type, type) : undefined,
+    family ? arrayContains(magicItems.itemTypes, [family]) : undefined,
+  ]);
+
+  try {
+    const [total] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(magicItems)
+      .where(where);
+    const filas = await db
+      .select()
+      .from(magicItems)
+      .where(where)
+      .orderBy(asc(magicItems.name))
+      .limit(limit)
+      .offset((page - 1) * limit);
+    res.json({ total: total?.n ?? 0, page, limit, items: filas });
+  } catch (err) {
+    log.error('Items list failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to list items' });
+  }
+});
+
+rulesRouter.get('/items/:slug', async (req, res) => {
+  if (!(await exigirDb(res))) return;
+  try {
+    const filas = await db
+      .select()
+      .from(magicItems)
+      .where(or(eq(magicItems.slug, req.params.slug), eq(magicItems.id, req.params.slug)))
+      .limit(1);
+    if (filas.length === 0) {
+      res.status(404).json({ error: 'Item not found' });
+      return;
+    }
+    res.json(filas[0]);
+  } catch (err) {
+    log.error('Item fetch failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to fetch item' });
+  }
+});
+
+// ─── Unidades ─────────────────────────────────────────────────────────────
+
+rulesRouter.get('/units', async (req, res) => {
+  const parsed = UnidadesSchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Bad request', details: parsed.error.flatten() });
+    return;
+  }
+  if (!(await exigirDb(res))) return;
+
+  const { q, army, category, page, limit } = parsed.data;
+  const where = combinar([
+    filtroTexto(units.searchText, q),
+    army ? eq(units.army, army) : undefined,
+    category ? eq(units.unitCategory, category) : undefined,
+  ]);
+
+  try {
+    const [total] = await db.select({ n: sql<number>`count(*)::int` }).from(units).where(where);
+    const filas = await db
+      .select()
+      .from(units)
+      .where(where)
+      .orderBy(asc(units.name))
+      .limit(limit)
+      .offset((page - 1) * limit);
+    res.json({ total: total?.n ?? 0, page, limit, count: filas.length, units: filas });
+  } catch (err) {
+    log.error('Units list failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to list units' });
+  }
+});
+
+rulesRouter.get('/units/:id', async (req, res) => {
+  if (!(await exigirDb(res))) return;
+  try {
+    const filas = await db
+      .select()
+      .from(units)
+      .where(or(eq(units.id, req.params.id), eq(units.slug, req.params.id)))
+      .limit(1);
+    if (filas.length === 0) {
+      res.status(404).json({ error: 'Unit not found' });
+      return;
+    }
+    res.json(filas[0]);
+  } catch (err) {
+    log.error('Unit fetch failed', { error: (err as Error).message });
+    res.status(500).json({ error: 'Failed to fetch unit' });
+  }
+});
+
+// ─── Búsqueda combinada ───────────────────────────────────────────────────
+
+const BusquedaSchema = z.object({
+  q: z.string().max(120).optional(),
+  army: z.string().max(60).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
+/**
+ * GET /api/kb/search?q=great+weapon
+ * Una pasada por las tres tablas: devuelve pocos resultados de cada tipo, para
+ * un resumen. Las listas completas son /api/rules, /api/items y /api/units.
+ */
+rulesRouter.get('/kb/search', async (req, res) => {
+  const parsed = BusquedaSchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Bad request', details: parsed.error.flatten() });
+    return;
+  }
+  if (!(await exigirDb(res))) return;
+
+  const { q, army, limit } = parsed.data;
+
+  try {
+    const [unidades, reglas, items] = await Promise.all([
+      db
         .select()
         .from(units)
-        .where(unitConditions.length > 0 ? or(...unitConditions) : undefined)
-        .limit(limit);
-    }
-
-    // Search special rules
-    {
-      const ruleConditions = [];
-      if (q) ruleConditions.push(ilike(specialRules.name, `%${q}%`));
-      results.rules = await db
+        .where(combinar([filtroTexto(units.searchText, q), army ? eq(units.army, army) : undefined]))
+        .orderBy(asc(units.name))
+        .limit(limit),
+      db
         .select()
         .from(specialRules)
-        .where(ruleConditions.length > 0 ? or(...ruleConditions) : undefined)
-        .limit(limit);
-    }
-
-    // Search magic items
-    {
-      const itemConditions = [];
-      if (q) itemConditions.push(ilike(magicItems.name, `%${q}%`));
-      results.items = await db
+        .where(filtroTexto(specialRules.searchText, q))
+        .orderBy(asc(specialRules.name))
+        .limit(limit),
+      db
         .select()
         .from(magicItems)
-        .where(itemConditions.length > 0 ? or(...itemConditions) : undefined)
-        .limit(limit);
-    }
+        .where(filtroTexto(magicItems.searchText, q))
+        .orderBy(asc(magicItems.name))
+        .limit(limit),
+    ]);
 
     res.json({
-      query: { q, army, category, limit },
+      query: { q, army, limit },
       counts: {
-        units: results.units.length,
-        rules: results.rules.length,
-        items: results.items.length,
-        total: results.units.length + results.rules.length + results.items.length,
+        units: unidades.length,
+        rules: reglas.length,
+        items: items.length,
+        total: unidades.length + reglas.length + items.length,
       },
-      results,
+      results: { units: unidades, rules: reglas, items },
     });
   } catch (err) {
     log.error('Search failed', { error: (err as Error).message });
@@ -102,143 +346,26 @@ rulesRouter.get('/search', async (req, res) => {
   }
 });
 
-/**
- * GET /api/units?army=empire-of-man&category=Core
- *
- * Hasta la Ola 11 este endpoint caía a un SEED de 9 unidades hardcodeadas
- * cuando la DB no respondía, porque las tablas del Codex nunca se poblaban. Con
- * el corpus real cargado, ese fallback devolvía un shape distinto al de la DB
- * para el mismo endpoint. Ahora, sin base, 503 como el resto de la API.
- */
-const UnitsListSchema = z.object({
-  army: z.string().max(60).optional(),
-  category: z.string().max(40).optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-});
+// ─── Stats ────────────────────────────────────────────────────────────────
 
-rulesRouter.get('/units', async (req, res) => {
-  const parsed = UnitsListSchema.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json({ error: 'Bad request', details: parsed.error.flatten() });
-    return;
-  }
-
-  if (!(await isDbHealthy())) {
-    res.status(503).json({ error: 'Database not available' });
-    return;
-  }
-
-  const conditions = [];
-  if (parsed.data.army) conditions.push(eq(units.army, parsed.data.army));
-  if (parsed.data.category) conditions.push(eq(units.unitCategory, parsed.data.category));
-
+rulesRouter.get('/kb/stats', async (_req, res) => {
+  if (!(await exigirDb(res))) return;
   try {
-    const rows = await db
-      .select()
-      .from(units)
-      .where(conditions.length > 0 ? or(...conditions) : undefined)
-      .limit(parsed.data.limit);
-    res.json({ count: rows.length, units: rows });
-  } catch (err) {
-    log.error('Units list failed', { error: (err as Error).message });
-    res.status(500).json({ error: 'Failed to list units' });
-  }
-});
-
-/** GET /api/units/:id */
-rulesRouter.get('/units/:id', async (req, res) => {
-  if (!(await isDbHealthy())) {
-    res.status(503).json({ error: 'Database not available' });
-    return;
-  }
-  try {
-    const rows = await db.select().from(units).where(eq(units.id, req.params.id)).limit(1);
-    if (rows.length === 0) {
-      res.status(404).json({ error: 'Unit not found' });
-      return;
-    }
-    res.json(rows[0]);
-  } catch (err) {
-    log.error('Unit fetch failed', { error: (err as Error).message });
-    res.status(500).json({ error: 'Failed to fetch unit' });
-  }
-});
-
-/**
- * GET /api/rules
- * Lista reglas especiales.
- */
-rulesRouter.get('/rules', async (_req, res) => {
-  if (!(await isDbHealthy())) {
-    res.status(503).json({ error: 'Database not available' });
-    return;
-  }
-  try {
-    const rows = await db.select().from(specialRules).limit(100);
-    res.json({ count: rows.length, rules: rows });
-  } catch (err) {
-    log.error('Rules list failed', { error: (err as Error).message });
-    res.status(500).json({ error: 'Failed to list rules' });
-  }
-});
-
-/**
- * GET /api/items
- * Lista magic items.
- */
-const ItemsListSchema = z.object({
-  type: z.string().max(40).optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-});
-
-rulesRouter.get('/items', async (req, res) => {
-  const parsed = ItemsListSchema.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json({ error: 'Bad request', details: parsed.error.flatten() });
-    return;
-  }
-  if (!(await isDbHealthy())) {
-    res.status(503).json({ error: 'Database not available' });
-    return;
-  }
-  try {
-    const conditions = [];
-    if (parsed.data.type) conditions.push(eq(magicItems.type, parsed.data.type));
-    const rows = await db
-      .select()
-      .from(magicItems)
-      .where(conditions.length > 0 ? or(...conditions) : undefined)
-      .limit(parsed.data.limit);
-    res.json({ count: rows.length, items: rows });
-  } catch (err) {
-    log.error('Items list failed', { error: (err as Error).message });
-    res.status(500).json({ error: 'Failed to list items' });
-  }
-});
-
-/**
- * GET /api/kb/stats
- * Stats de la KB: cuántas unidades, reglas, items hay.
- */
-rulesRouter.get('/stats', async (_req, res) => {
-  if (!(await isDbHealthy())) {
-    res.status(503).json({ error: 'Database not available' });
-    return;
-  }
-  try {
-    const [unitCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(units);
-    const [ruleCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(specialRules);
-    const [itemCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(magicItems);
+    const [[unidades], [reglas], [items], [traducidas]] = await Promise.all([
+      db.select({ n: sql<number>`count(*)::int` }).from(units),
+      db.select({ n: sql<number>`count(*)::int` }).from(specialRules),
+      db.select({ n: sql<number>`count(*)::int` }).from(magicItems),
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(specialRules)
+        .where(sql`${specialRules.descriptionEs} is not null`),
+    ]);
     res.json({
-      units: unitCount?.count ?? 0,
-      rules: ruleCount?.count ?? 0,
-      items: itemCount?.count ?? 0,
+      units: unidades?.n ?? 0,
+      rules: reglas?.n ?? 0,
+      items: items?.n ?? 0,
+      /** Cuántas reglas tienen traducción: distingue "vacío" de "en inglés". */
+      rulesTranslated: traducidas?.n ?? 0,
     });
   } catch (err) {
     log.error('KB stats failed', { error: (err as Error).message });

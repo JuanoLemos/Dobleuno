@@ -6,8 +6,9 @@
 
 Dobleuno es un sistema cliente-servidor para asistir a un jugador de Warhammer: The Old World
 durante una partida en mesa, y para coordinar las mesas de un club. El cliente es una PWA
-mobile-first; el server es un backend Node con BD relacional + vector store + LLM. Hay además
-un portal estático (Astro) con el reglamento traducido, pensado para consulta rápida y SEO.
+mobile-first; el server es un backend Node con BD relacional + vector store + LLM. El reglamento
+navegable (el Codex) vive dentro de la misma app desde la Ola 11: el portal Astro que lo servía
+se retiró (ADR-011).
 
 Un deploy = un club (single-tenant). Multi-club queda para Fase 2.
 
@@ -22,18 +23,19 @@ Un deploy = un club (single-tenant). Multi-club queda para Fase 2.
 │ React Router 6           │ ─────────────► │ /api/health    (GET)            │
 │                          │                │ /api/lists     (CRUD, Ola 3)    │
 │ TabShell (Ola 8)         │                │ /api/battles   (CRUD, Ola 4)    │
-│  Codex · Ejércitos       │                │ /api/rules     (search, Ola 2)  │
-│  Mesas · Crónicas        │                │ /api/ask       (RAG, Ola 5)     │
+│  Codex · Ejércitos       │                │ /api/rules|items|units (Ola 11) │
+│  Mesas · Crónicas        │                │ /api/kb/{search,stats} (Ola 11) │
+│                          │                │ /api/ask       (RAG, Ola 5)     │
 │ Service Worker           │                │ /api/admin/kb/* (Ola 7.1)       │
 │ (offline-first)          │                │ /api/club      (Ola 8)          │
 │                          │                │ /api/mesas     (Ola 9)          │
 └──────────────────────────┘                │ /api/sesiones  (Ola 9)          │
                                             │ /api/mis-reservas (Ola 9)       │
 ┌──────────────────────────┐                │ /api/cronicas  (Ola 10)         │
-│ Portal estático (Astro)  │                │ /api/media/cronicas (estático)  │
-│ Reglamento traducido     │                │ + account (perfil de usuario)   │
-│ /reglas · /items · /sobre│                │                                 │
-│ Sin runtime, sin auth    │                │ SPA fallback: sirve             │
+│ Codex (piel propia)      │                │ /api/media/cronicas (estático)  │
+│ /reglas · /items · /sobre│                │ + account (perfil de usuario)   │
+│ Público, con noindex     │                │                                 │
+│ Cache en IndexedDB       │                │ SPA fallback: sirve             │
 └──────────────────────────┘                │ apps/web/dist si existe         │
                                             │ (WEB_DIST_DIR configurable)     │
                                             │                                 │
@@ -130,13 +132,29 @@ pregunta → embed (provider swappable) → retrieval pgvector (cosine, top-K)
 | Validación | Zod | Mismo que cliente, tipos compartidos |
 | Testing | Vitest | Mismo que cliente |
 
-## Portal (Astro)
+## Codex y su pipeline de contenido
 
-Sitio estático con el reglamento traducido al español rioplatense. No tiene runtime ni auth:
-se genera con `npm run portal:build` y se sirve como HTML plano. El pipeline de contenido es
-`mirror-tow → parse-tow → translate-tow (DeepSeek, cache por hash) → copy a portal/src/data/`.
+El Codex son cinco rutas de la app React (`/reglas`, `/reglas/:slug`, `/items`, `/items/:slug`,
+`/sobre`) con una piel propia aplicada por ruta: `CodexLayout` pone `data-skin="codex"` en el body
+al montar y lo saca al desmontar. El resto de la app no se entera.
 
-Queda como anexo público/SEO hasta la Ola 11, que porta el Codex a React (ADR-006).
+El pipeline que lo alimenta:
+
+```
+mirror-tow      manifest desde los 3 sitemaps del sitio → data/raw/<kind>/<slug>.json
+parse-tow       → data/processed/{rules,magic-items,units}.json
+validate-corpus corta con exit 1 si el corpus salió degenerado
+translate-tow   → data/translated/ (DeepSeek, cache por hash del source)
+validate-corpus otra vez, sobre el traducido
+kb:seed         → Postgres: special_rules · magic_items · units · kb_chunks
+```
+
+El paso de validación no es decorativo: entre la Ola 2 y la Ola 11 el pipeline terminó con exit 0
+durante dos meses escribiendo 39 entradas basura, porque el mirror bajaba el shell de carga de
+Next.js en vez de las páginas.
+
+El corpus **no se bundlea**: viaja del server al IndexedDB del usuario (Dexie v3), que es lo que
+permite leerlo sin señal. Las rutas llevan `noindex` (ADR-011).
 
 ## Decisiones arquitectónicas cerradas (ADRs)
 
@@ -146,11 +164,12 @@ reglas, backend + LLM, hosting) están en `doc/plan/PLAN.md`, no como ADR propio
 | ADR | Decisión |
 |---|---|
 | [ADR-005](ADR-005-llm-provider.md) | LLM provider: DeepSeek + embeddings de OpenAI |
-| [ADR-006](ADR-006-react-single-source.md) | React app como single source of truth post-login; el portal Astro queda como anexo SEO |
+| [ADR-006](ADR-006-react-single-source.md) | React app como single source of truth post-login (cláusula de SEO superada por ADR-011) |
 | [ADR-007](ADR-007-tabs-naming.md) | Naming de módulos en español (Codex / Ejércitos / Mesas / Crónicas) |
 | [ADR-008](ADR-008-club-info-model.md) | Modelo de datos del club: single-row, single-tenant |
 | [ADR-009](ADR-009-calendar-data-model.md) | Calendar: mesas / sesiones / reservas + anti-doble-booking |
 | [ADR-010](ADR-010-cronicas-data-model.md) | Crónicas: tablas propias, storage local con capability URLs, relato anclado a la partida |
+| [ADR-011](ADR-011-codex-react-noindex.md) | Codex en React con `noindex`; portal Astro retirado |
 
 La decisión de **KB sync vía endpoint admin** (Ola 7.1) reemplazó al cron diario por un job
 queue in-memory triggereable con `POST /api/admin/kb/sync`, con cache persistente en el volumen
@@ -164,7 +183,7 @@ queue in-memory triggereable con `POST /api/admin/kb/sync`, con cache persistent
 3. **La IA no inventa fuentes**: sin contexto recuperado el oráculo no llama al LLM, y toda cita
    se valida contra los chunks reales. Las crónicas siguen la misma regla con sus anclas a
    unidades y hitos de la partida.
-4. **Brand consistency**: paleta forge/blood/bronze en la app, parchment en el portal.
+4. **Brand consistency**: paleta forge/blood/bronze en la app, parchment en la home cream, y la piel `codex` (tinta y oro) en el reglamento.
 5. **Mobile-first**: 360px de ancho mínimo, touch targets ≥ 44px, tabs sticky.
 6. **TZ**: el server guarda en UTC; la UI formatea en `America/Buenos_Aires`.
 

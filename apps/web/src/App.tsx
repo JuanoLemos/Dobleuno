@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { FormattedMessage } from 'react-intl';
+import { Helmet } from 'react-helmet-async';
 
 import { AppShell } from './components/layout/AppShell.js';
 import { AuthLayout } from './routes/AuthLayout.js';
@@ -15,7 +16,19 @@ const Batalla = lazy(() => import('./routes/Batalla.js').then((m) => ({ default:
 const BattleEdit = lazy(() =>
   import('./routes/BattleEdit.js').then((m) => ({ default: m.BattleEdit })),
 );
-const Reglas = lazy(() => import('./routes/Reglas.js').then((m) => ({ default: m.Reglas })));
+const CodexReglas = lazy(() =>
+  import('./routes/CodexReglas.js').then((m) => ({ default: m.CodexReglas })),
+);
+const CodexRegla = lazy(() =>
+  import('./routes/CodexRegla.js').then((m) => ({ default: m.CodexRegla })),
+);
+const CodexItems = lazy(() =>
+  import('./routes/CodexItems.js').then((m) => ({ default: m.CodexItems })),
+);
+const CodexItem = lazy(() =>
+  import('./routes/CodexItem.js').then((m) => ({ default: m.CodexItem })),
+);
+const Sobre = lazy(() => import('./routes/Sobre.js').then((m) => ({ default: m.Sobre })));
 const Legal = lazy(() => import('./routes/Legal.js').then((m) => ({ default: m.Legal })));
 const Mesas = lazy(() => import('./routes/Mesas.js').then((m) => ({ default: m.Mesas })));
 const Cronicas = lazy(() => import('./routes/Cronicas.js').then((m) => ({ default: m.Cronicas })));
@@ -40,6 +53,11 @@ function Loading() {
 export default function App() {
   return (
     <>
+      {/* Título base. Las rutas del Codex lo pisan con el suyo; al salir de
+          ellas, Helmet restaura este en vez de dejar el de la página anterior. */}
+      <Helmet>
+        <title>Dobleuno</title>
+      </Helmet>
       <Routes>
         {/* Auth routes (sin AppShell) */}
         <Route element={<AuthLayout />}>
@@ -70,6 +88,21 @@ export default function App() {
             </Suspense>
           }
         />
+
+        {/* Codex (Ola 11) — piel propia, sin TabShell. Reglamento navegable. */}
+        {[
+          { path: '/reglas', element: <CodexReglas /> },
+          { path: '/reglas/:slug', element: <CodexRegla /> },
+          { path: '/items', element: <CodexItems /> },
+          { path: '/items/:slug', element: <CodexItem /> },
+          { path: '/sobre', element: <Sobre /> },
+        ].map((r) => (
+          <Route
+            key={r.path}
+            path={r.path}
+            element={<Suspense fallback={<Loading />}>{r.element}</Suspense>}
+          />
+        ))}
 
         {/* Main app (TabShell — header horizontal con tabs) */}
         <Route element={<AppShell />}>
@@ -118,14 +151,6 @@ export default function App() {
             element={
               <Suspense fallback={<Loading />}>
                 <BattleEdit />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/reglas"
-            element={
-              <Suspense fallback={<Loading />}>
-                <Reglas />
               </Suspense>
             }
           />

@@ -45,3 +45,7 @@ Usar [adr-template.md](adr-template.md) para nuevas decisiones.
 ## ADR-010 — Crónicas: modelo de datos, storage y generación
 
 **Aceptado** · 2026-09-14 · Ola 10. Tablas propias en vez de campos en `battles.data`; una crónica por batalla; visibilidad elegida por el autor; storage en disco con volumen propio y capability URLs; el relato se ancla a unidades y hitos reales y se valida en el server. Ver [ADR-010](ADR-010-cronicas-data-model.md).
+
+## ADR-011 — Codex en React, sin indexar, y retiro del portal Astro
+
+**Aceptado** · 2026-09-14 · Ola 11. El Codex se sirve desde la app React con piel propia por ruta y datos de la API (no bundleados); las rutas son públicas pero llevan `noindex` por el riesgo legal del contenido de GW; `portal/` se retira (última versión en el tag `v1.1.0`). Supersede la cláusula de SEO del ADR-006, cuyo fundamento suponía un portal con reglas publicadas que nunca existió. Ver [ADR-011](ADR-011-codex-react-noindex.md).

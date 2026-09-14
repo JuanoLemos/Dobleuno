@@ -4,7 +4,7 @@ INSTRUCCIÓN: NO modificar este archivo sin entender el catálogo. CONTIENE el m
 
 Catálogo de documentación del proyecto. Mantenido por /version y /updoc.
 
-Última actualización global: 2026-09-14
+Última actualización global: 2026-09-14 (v1.2.0)
 
 ## Docs críticos
 
@@ -12,11 +12,11 @@ Gestionados por /version. La versión se actualiza al cerrar sesión.
 
 | Archivo | Versión | Última actualización | Resumen (L0) |
 |---|---|---|---|
-| ROADMAP.md | v1.0.1 | 2026-09-13 | Olas 0–9 cerradas; 10–12 pendientes |
-| CHANGELOG.md | v1.0.1 | 2026-09-14 | Historial de versiones + bitácora por ola |
+| ROADMAP.md | v1.2.0 | 2026-09-14 | Olas 0–11 cerradas; 12 pendiente |
+| CHANGELOG.md | v1.2.0 | 2026-09-14 | Historial de versiones + bitácora por ola |
 | DILIGENCIA.md | v4.3.1 | 2026-09-14 | Sello de metodología del proyecto |
 | CLAUDE.md | v1.0.1 | 2026-09-14 | SSOT: variables de ruta, stack, reglas |
-| doc/MODULES.md | — | 2026-07-10 | Qué ve el usuario en cada módulo |
+| doc/MODULES.md | v1.2.0 | 2026-09-14 | Qué ve el usuario en cada módulo |
 
 ## Guías
 
@@ -27,7 +27,7 @@ Gestionadas por /updoc. La versión se actualiza tras sync exitoso.
 | doc/guias/deploy.md | — | 2026-07-10 | Hetzner + Cloudflare + docker-compose + volumen kbdata |
 | doc/guias/identidad.md | template | 2026-09-14 | Identidad del sistema (canónica de Diligencia) |
 | doc/RELEASING.md | — | 2026-07-09 | Convención de versionado y tags |
-| doc/Sources.md | — | 2026-07-09 | Atribución de fuentes (tow.whfb.app) |
+| doc/Sources.md | v1.2.0 | 2026-09-14 | Atribución de fuentes y qué se almacena del corpus |
 
 ## Mecánicas
 
@@ -48,7 +48,7 @@ vía `diligencia-lock.json`; las de dominio (TOW) son del proyecto.
 
 | Archivo | Versión | Última actualización | Resumen (L0) |
 |---|---|---|---|
-| doc/arch/SISTEMA.md | v1.1.0 | 2026-09-14 | Arquitectura, stack, endpoints, pipeline del oráculo |
+| doc/arch/SISTEMA.md | v1.2.0 | 2026-09-14 | Arquitectura, stack, endpoints, pipeline del oráculo y del Codex |
 | doc/arch/ADR_SUMMARY.md | template | 2026-09-14 | Índice de decisiones arquitectónicas |
 | doc/arch/ADR-005-llm-provider.md | — | 2026-07-09 | DeepSeek como proveedor LLM |
 | doc/arch/ADR-006-react-single-source.md | — | 2026-07-10 | React app como single source of truth |
@@ -56,6 +56,7 @@ vía `diligencia-lock.json`; las de dominio (TOW) son del proyecto.
 | doc/arch/ADR-008-club-info-model.md | — | 2026-07-10 | Modelo de datos del club (single-row) |
 | doc/arch/ADR-009-calendar-data-model.md | — | 2026-07-10 | Mesas / sesiones / reservas |
 | doc/arch/ADR-010-cronicas-data-model.md | — | 2026-09-14 | Crónicas: datos, storage y generación |
+| doc/arch/ADR-011-codex-react-noindex.md | — | 2026-09-14 | Codex en React, `noindex`, portal retirado |
 | doc/arch/bugs.md | template | 2026-09-14 | Bug tracker (P1/P2/P3) |
 | doc/arch/incidentes.md | template | 2026-09-14 | Incidentes runtime y crashes |
 | doc/arch/backups.md | template | 2026-09-14 | Estado de backups y pruning |

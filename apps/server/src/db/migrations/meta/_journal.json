@@ -50,6 +50,13 @@
       "when": 1789397394049,
       "tag": "0006_codex_taxonomia_libre",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789397395049,
+      "tag": "0007_codex_traduccion",
+      "breakpoints": true
     }
   ]
 }

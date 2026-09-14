@@ -1,15 +1,29 @@
 /**
  * Dobleuno · Traductor de TOW (inglés → español rioplatense)
  *
- * Lee data/processed/*.json y produce data/translated/*.json con la versión
- * en español, usando DeepSeek (OpenAI-compatible).
+ * Lee data/processed/*.json y produce data/translated/*.json: las mismas
+ * entradas, con `nameEs` y `textEs` agregados.
+ *
+ * ── Por qué se reescribió en la Ola 11 ───────────────────────────────────
+ *
+ * Este script leía `special-rules.json` con campos `description`, `category`,
+ * `rarity` y `points`. Ese archivo y esos campos son del corpus viejo, el que
+ * el mirror roto producía. El corpus nuevo es `rules.json` / `magic-items.json`
+ * con `text`, `ruleType`, `type` y `cost`, así que el traductor habría fallado
+ * en el primer archivo del pipeline.
+ *
+ * Reglas e items comparten la forma que importa acá — id, name, text — así que
+ * el traductor los trata igual y solo cambia el prompt.
+ *
+ * Las unidades NO se traducen: su contenido es statline y bloques de equipo,
+ * donde el valor está en los números y en los nombres propios, que la guía de
+ * traducción manda dejar en inglés. `units.json` se copia tal cual para que el
+ * corpus traducido esté completo.
  *
  * Características:
- *   - Cache de traducciones por hash del source (no retraducir si no cambió)
- *   - Batch de N reglas por request (eficiencia de tokens)
- *   - Concurrency limited (2-3 calls en paralelo)
- *   - Retry con exponential backoff
- *   - Output en JSON estructurado (parsing seguro)
+ *   - Cache por hash del source (no retraduce lo que no cambió)
+ *   - Batch de N entradas por request
+ *   - Concurrency limitada, retry con backoff
  *
  * Variables de entorno:
  *   DEEPSEEK_API_KEY  requerida
@@ -17,16 +31,14 @@
  *   DEEPSEEK_BASE_URL default: https://api.deepseek.com
  *
  * Uso:
- *   tsx scripts/translate-tow.ts                    # todo (rules + items)
- *   tsx scripts/translate-tow.ts --type=rule        # solo reglas
- *   tsx scripts/translate-tow.ts --type=item        # solo items
+ *   tsx scripts/translate-tow.ts                    # reglas + items
+ *   tsx scripts/translate-tow.ts --type=rule
  *   tsx scripts/translate-tow.ts --force            # ignora cache
- *   tsx scripts/translate-tow.ts --concurrency=2    # ajustar paralelismo
- *   tsx scripts/translate-tow.ts --dry-run          # muestra qué se traduciría sin gastar API
+ *   tsx scripts/translate-tow.ts --dry-run          # no gasta API
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { dirname, join, resolve, basename } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
@@ -42,7 +54,7 @@ const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek
 
 // ─── CLI args ─────────────────────────────────────────────────────────────
 
-interface CliArgs {
+export interface CliArgs {
   type: 'rule' | 'item' | 'all';
   force: boolean;
   concurrency: number;
@@ -63,7 +75,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg.startsWith('--type=')) {
       const v = arg.slice('--type='.length);
-      args.type = v === 'all' ? 'all' : (v as 'rule' | 'item');
+      args.type = v === 'rule' || v === 'item' ? v : 'all';
     } else if (arg.startsWith('--concurrency=')) {
       args.concurrency = Math.max(1, Number.parseInt(arg.slice('--concurrency='.length), 10));
     } else if (arg.startsWith('--batch=')) {
@@ -75,7 +87,12 @@ function parseArgs(argv: string[]): CliArgs {
 
 // ─── Cache ────────────────────────────────────────────────────────────────
 
-type Cache = Record<string, unknown>;
+interface Traduccion {
+  nameEs: string;
+  textEs: string;
+}
+
+type Cache = Record<string, Traduccion>;
 
 function loadCache(): Cache {
   if (!existsSync(CACHE_FILE)) return {};
@@ -95,34 +112,30 @@ function hashKey(s: string): string {
   return createHash('sha256').update(s).digest('hex').slice(0, 16);
 }
 
-// ─── LLM call ─────────────────────────────────────────────────────────────
+/** La clave incluye el hash del original: si el sitio corrige, se retraduce. */
+function claveDe(tipo: Tipo, e: Traducible): string {
+  return `${tipo}:${e.id}:${hashKey(`${e.name}|${e.text}`)}`;
+}
+
+// ─── LLM ──────────────────────────────────────────────────────────────────
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-interface ChatRequest {
-  model: string;
-  messages: ChatMessage[];
-  temperature: number;
-  max_tokens: number;
-  response_format?: { type: 'json_object' };
-}
-
 interface ChatResponse {
-  choices: Array<{
-    message: { content: string };
-  }>;
+  choices: Array<{ message: { content: string } }>;
 }
 
 const SYSTEM_PROMPT = `Sos un traductor profesional de manuales de Warhammer: The Old World del inglés al español rioplatense argentino. Tu trabajo es producir una traducción precisa, natural y técnica, que un jugador pueda usar en la mesa.
 
 Reglas:
 - Mantené la terminología de juego estándar (carga, combate cuerpo a cuerpo, fase de movimiento, salvación de armadura, etc.).
-- NO traduzcas nombres propios de armas, hechizos, unidades o personajes (ej. "Greatsword" → "Greatsword", no "Gran espadachín"). Sí podés agregar una glosa corta entre paréntesis si ayuda.
+- NO traduzcas nombres propios de armas, hechizos, unidades o personajes (ej. "Greatsword" queda "Greatsword"). Sí podés agregar una glosa corta entre paréntesis si ayuda.
 - Números, stats y reglas técnicas: NO los modifiques. "WS4" queda "WS4", no "WS 4" ni "4 de WS".
-- Siglos los términos de juego: "wizard", "spell", "ward save", "dispel" suelen dejarse en inglés o como anglicismos aceptados en el hobby ("wizard", "dispel", "ward save"). Evitá traducciones literales torpes.
+- Los términos "wizard", "spell", "ward save", "dispel" se dejan en inglés o como anglicismos aceptados en el hobby. Evitá traducciones literales torpes.
+- Conservá los saltos de línea del original: separan el perfil del arma de su texto.
 - Devolvés únicamente el JSON estructurado, sin comentarios ni markdown.`;
 
 async function callLlm(messages: ChatMessage[]): Promise<string> {
@@ -131,12 +144,12 @@ async function callLlm(messages: ChatMessage[]): Promise<string> {
       'DEEPSEEK_API_KEY no configurada. Exportá la variable o copiá .env.example a .env.',
     );
   }
-  const body: ChatRequest = {
+  const body = {
     model: DEEPSEEK_MODEL,
     messages,
     temperature: 0.2,
-    max_tokens: 4000,
-    response_format: { type: 'json_object' },
+    max_tokens: 8000,
+    response_format: { type: 'json_object' as const },
   };
   let attempt = 0;
   let lastErr: Error | null = null;
@@ -159,267 +172,130 @@ async function callLlm(messages: ChatMessage[]): Promise<string> {
     } catch (err) {
       lastErr = err as Error;
       attempt++;
-      if (attempt < 3) {
-        const wait = 500 * 2 ** attempt;
-        await new Promise((r) => setTimeout(r, wait));
-      }
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
     }
   }
   throw new Error(`LLM call failed after 3 attempts: ${lastErr?.message ?? 'unknown'}`);
 }
 
-// ─── Translation batches ─────────────────────────────────────────────────
+// ─── Traducción ───────────────────────────────────────────────────────────
 
-interface ParsedRule {
+type Tipo = 'rule' | 'item';
+
+/** Lo único que el traductor necesita de una entrada del corpus. */
+interface Traducible {
   id: string;
   name: string;
-  description: string;
-  category: string;
-  source: { page: string; lastVerified: string };
+  text: string;
+  [k: string]: unknown;
 }
 
-interface ParsedItem {
-  id: string;
-  name: string;
-  rarity: string;
-  points: number;
-  description: string;
-  source: { page: string; lastVerified: string };
-}
+const ETIQUETA: Record<Tipo, string> = {
+  rule: 'reglas especiales',
+  item: 'items mágicos',
+};
 
-interface TranslatedRule {
-  id: string;
-  name: string;
-  nameEs: string;
-  description: string;
-  descriptionEs: string;
-  category: string;
-  source: { page: string; lastVerified: string };
-}
-
-interface TranslatedItem {
-  id: string;
-  name: string;
-  nameEs: string;
-  rarity: string;
-  points: number;
-  description: string;
-  descriptionEs: string;
-  source: { page: string; lastVerified: string };
-}
-
-async function translateBatchRules(
-  batch: ParsedRule[],
+/**
+ * Traduce un lote y devuelve las traducciones indexadas por id.
+ *
+ * Solo manda al LLM lo que no está en cache. Si la respuesta no matchea el
+ * lote, tira: mejor abortar el lote y reintentar que escribir un corpus donde
+ * el texto de una regla quedó bajo el nombre de otra.
+ */
+async function traducirLote(
+  tipo: Tipo,
+  lote: Traducible[],
   cache: Cache,
   force: boolean,
-): Promise<TranslatedRule[]> {
-  // Determine which need translation
-  const needsTranslation: ParsedRule[] = [];
-  for (const r of batch) {
-    const key = `rule:${r.id}:${hashKey(r.name + '|' + r.description)}`;
-    if (force || !cache[key]) {
-      needsTranslation.push(r);
-    }
+): Promise<Map<string, Traduccion>> {
+  const resultado = new Map<string, Traduccion>();
+  const faltantes: Traducible[] = [];
+
+  for (const e of lote) {
+    const cached = force ? undefined : cache[claveDe(tipo, e)];
+    if (cached) resultado.set(e.id, cached);
+    else faltantes.push(e);
   }
 
-  if (needsTranslation.length === 0) {
-    // All cached
-    return batch.map((r) => {
-      const key = `rule:${r.id}:${hashKey(r.name + '|' + r.description)}`;
-      const cached = cache[key] as { nameEs: string; descriptionEs: string } | undefined;
-      return {
-        id: r.id,
-        name: r.name,
-        nameEs: cached?.nameEs ?? r.name,
-        description: r.description,
-        descriptionEs: cached?.descriptionEs ?? r.description,
-        category: r.category,
-        source: r.source,
-      };
-    });
-  }
+  if (faltantes.length === 0) return resultado;
 
-  const userPrompt = `Traducí el siguiente array JSON de reglas de TOW al español rioplatense. Devolvé un array con la misma cantidad de elementos, en el mismo orden, con los campos extra "nameEs" (traducción del nombre) y "descriptionEs" (traducción de la descripción). Conservá los campos originales: id, name, description, category, source. Categorías válidas: combat, shooting, magic, movement, leadership, equipment, armour, psychology.
+  const payload = faltantes.map((e) => ({ id: e.id, name: e.name, text: e.text }));
+  const userPrompt = `Traducí al español rioplatense estas ${ETIQUETA[tipo]} de Warhammer: The Old World.
 
-Reglas a traducir:
-${JSON.stringify(needsTranslation, null, 2)}`;
+Devolvé un objeto JSON con la clave "entradas": un array con la MISMA cantidad de elementos y los MISMOS id, cada uno con:
+  - "id": el id original, sin cambios
+  - "nameEs": el nombre traducido (o el original si es un nombre propio)
+  - "textEs": el texto traducido
+
+Entradas:
+${JSON.stringify(payload, null, 2)}`;
 
   const content = await callLlm([
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: userPrompt },
   ]);
 
-  let translated: TranslatedRule[];
+  let entradas: Array<{ id?: string; nameEs?: string; textEs?: string }>;
   try {
-    const parsed = JSON.parse(content) as { reglas?: TranslatedRule[]; rules?: TranslatedRule[] };
-    translated = parsed.reglas ?? parsed.rules ?? [];
-    if (!Array.isArray(translated) || translated.length !== needsTranslation.length) {
-      throw new Error('LLM response not a valid array matching input length');
-    }
-  } catch (err) {
-    throw new Error(`Failed to parse LLM response: ${(err as Error).message}. Raw: ${content.slice(0, 300)}`);
-  }
-
-  // Update cache
-  for (let i = 0; i < needsTranslation.length; i++) {
-    const original = needsTranslation[i]!;
-    const trans = translated[i]!;
-    const key = `rule:${original.id}:${hashKey(original.name + '|' + original.description)}`;
-    cache[key] = { nameEs: trans.nameEs, descriptionEs: trans.descriptionEs };
-  }
-
-  // Combine translated + cached
-  return batch.map((r) => {
-    const trans = needsTranslation.find((n) => n.id === r.id);
-    if (trans) {
-      const found = translated.find((t) => t.id === r.id);
-      return {
-        id: r.id,
-        name: r.name,
-        nameEs: found?.nameEs ?? r.name,
-        description: r.description,
-        descriptionEs: found?.descriptionEs ?? r.description,
-        category: r.category,
-        source: r.source,
-      };
-    }
-    // From cache
-    const key = `rule:${r.id}:${hashKey(r.name + '|' + r.description)}`;
-    const cached = cache[key] as { nameEs: string; descriptionEs: string } | undefined;
-    return {
-      id: r.id,
-      name: r.name,
-      nameEs: cached?.nameEs ?? r.name,
-      description: r.description,
-      descriptionEs: cached?.descriptionEs ?? r.description,
-      category: r.category,
-      source: r.source,
+    const parsed = JSON.parse(content) as {
+      entradas?: Array<{ id?: string; nameEs?: string; textEs?: string }>;
     };
-  });
-}
-
-async function translateBatchItems(
-  batch: ParsedItem[],
-  cache: Cache,
-  force: boolean,
-): Promise<TranslatedItem[]> {
-  const needsTranslation: ParsedItem[] = [];
-  for (const i of batch) {
-    const key = `item:${i.id}:${hashKey(i.name + '|' + i.description)}`;
-    if (force || !cache[key]) {
-      needsTranslation.push(i);
-    }
-  }
-
-  if (needsTranslation.length === 0) {
-    return batch.map((i) => {
-      const key = `item:${i.id}:${hashKey(i.name + '|' + i.description)}`;
-      const cached = cache[key] as { nameEs: string; descriptionEs: string } | undefined;
-      return {
-        id: i.id,
-        name: i.name,
-        nameEs: cached?.nameEs ?? i.name,
-        rarity: i.rarity,
-        points: i.points,
-        description: i.description,
-        descriptionEs: cached?.descriptionEs ?? i.description,
-        source: i.source,
-      };
-    });
-  }
-
-  const userPrompt = `Traducí el siguiente array JSON de items mágicos de TOW al español rioplatense. Devolvé un array con la misma cantidad de elementos, en el mismo orden, con los campos extra "nameEs" (traducción del nombre) y "descriptionEs" (traducción de la descripción). Conservá los campos originales: id, name, rarity, points, description, source. NO modifiques el valor de "points" (es numérico) ni "rarity". Nombres propios como "Sword of Battle" pueden quedar igual o tener una traducción natural entre paréntesis.
-
-Items a traducir:
-${JSON.stringify(needsTranslation, null, 2)}`;
-
-  const content = await callLlm([
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: userPrompt },
-  ]);
-
-  let translated: TranslatedItem[];
-  try {
-    const parsed = JSON.parse(content) as { items?: TranslatedItem[] };
-    translated = parsed.items ?? [];
-    if (!Array.isArray(translated) || translated.length !== needsTranslation.length) {
-      throw new Error('LLM response not a valid array matching input length');
-    }
+    entradas = parsed.entradas ?? [];
   } catch (err) {
-    throw new Error(`Failed to parse LLM response: ${(err as Error).message}. Raw: ${content.slice(0, 300)}`);
+    throw new Error(
+      `Respuesta del LLM ilegible: ${(err as Error).message}. Crudo: ${content.slice(0, 300)}`,
+    );
+  }
+  if (entradas.length !== faltantes.length) {
+    throw new Error(
+      `El LLM devolvió ${entradas.length} entradas para un lote de ${faltantes.length}`,
+    );
   }
 
-  for (let i = 0; i < needsTranslation.length; i++) {
-    const original = needsTranslation[i]!;
-    const trans = translated[i]!;
-    const key = `item:${original.id}:${hashKey(original.name + '|' + original.description)}`;
-    cache[key] = { nameEs: trans.nameEs, descriptionEs: trans.descriptionEs };
+  // Se machea por id, no por posición: si el modelo reordena, el texto no se
+  // cruza de entrada. Lo que no vuelve queda sin traducir y el validador avisa.
+  const porId = new Map(entradas.filter((t) => t.id).map((t) => [t.id as string, t]));
+  for (const e of faltantes) {
+    const t = porId.get(e.id);
+    if (!t?.textEs) continue;
+    const traduccion: Traduccion = { nameEs: t.nameEs?.trim() || e.name, textEs: t.textEs };
+    resultado.set(e.id, traduccion);
+    cache[claveDe(tipo, e)] = traduccion;
   }
 
-  return batch.map((i) => {
-    const trans = needsTranslation.find((n) => n.id === i.id);
-    if (trans) {
-      const found = translated.find((t) => t.id === i.id);
-      return {
-        id: i.id,
-        name: i.name,
-        nameEs: found?.nameEs ?? i.name,
-        rarity: i.rarity,
-        points: i.points,
-        description: i.description,
-        descriptionEs: found?.descriptionEs ?? i.description,
-        source: i.source,
-      };
-    }
-    const key = `item:${i.id}:${hashKey(i.name + '|' + i.description)}`;
-    const cached = cache[key] as { nameEs: string; descriptionEs: string } | undefined;
-    return {
-      id: i.id,
-      name: i.name,
-      nameEs: cached?.nameEs ?? i.name,
-      rarity: i.rarity,
-      points: i.points,
-      description: i.description,
-      descriptionEs: cached?.descriptionEs ?? i.description,
-      source: i.source,
-    };
-  });
+  return resultado;
 }
 
 // ─── Batching & concurrency ──────────────────────────────────────────────
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    out.push(arr.slice(i, i + size));
-  }
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
 }
 
-async function processWithConcurrency<T, R>(
+async function processWithConcurrency<T>(
   items: T[],
   concurrency: number,
-  fn: (item: T) => Promise<R>,
+  fn: (item: T) => Promise<void>,
   onProgress?: (done: number, total: number) => void,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
+): Promise<void> {
   let idx = 0;
   let done = 0;
   const workers = Array.from({ length: concurrency }, async () => {
     while (idx < items.length) {
       const i = idx++;
-      results[i] = await fn(items[i]!);
+      await fn(items[i]!);
       done++;
       onProgress?.(done, items.length);
     }
   });
   await Promise.all(workers);
-  return results;
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────
 
-interface TranslateStats {
+export interface TranslateStats {
   attempted: number;
   fromCache: number;
   translated: number;
@@ -428,6 +304,72 @@ interface TranslateStats {
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────
+
+function leer(archivo: string): Traducible[] | null {
+  const ruta = join(DATA_PROCESSED, archivo);
+  if (!existsSync(ruta)) return null;
+  return JSON.parse(readFileSync(ruta, 'utf-8')) as Traducible[];
+}
+
+async function traducirArchivo(
+  tipo: Tipo,
+  archivo: string,
+  args: CliArgs,
+  cache: Cache,
+  stats: TranslateStats,
+): Promise<void> {
+  const entradas = leer(archivo);
+  if (!entradas) {
+    console.error(`[translate] No se encuentra ${archivo}. Corré primero el parse.`);
+    stats.failed++;
+    return;
+  }
+
+  const enCache = entradas.filter((e) => !args.force && cache[claveDe(tipo, e)]).length;
+  console.log(
+    `[translate] ${archivo}: ${entradas.length} entradas ` +
+      `(${enCache} en cache, ${entradas.length - enCache} a traducir)`,
+  );
+
+  if (args.dryRun) {
+    stats.attempted += entradas.length;
+    stats.fromCache += enCache;
+    return;
+  }
+
+  const traducciones = new Map<string, Traduccion>();
+  const lotes = chunk(entradas, args.batchSize);
+
+  await processWithConcurrency(
+    lotes,
+    args.concurrency,
+    async (lote) => {
+      try {
+        for (const [id, t] of await traducirLote(tipo, lote, cache, args.force)) {
+          traducciones.set(id, t);
+        }
+      } catch (e) {
+        stats.failed++;
+        stats.errors.push({ batch: `${tipo}[${lote[0]?.id}…]`, error: (e as Error).message });
+      }
+      stats.attempted += lote.length;
+    },
+    (done, total) => process.stdout.write(`\r[translate] ${tipo}: ${done}/${total} lotes`),
+  );
+  process.stdout.write('\n');
+
+  // Lo que no se pudo traducir se escribe en inglés. El validador de
+  // rules-sync corta si eso pasa en más del 10% del archivo.
+  const salida = entradas.map((e) => {
+    const t = traducciones.get(e.id);
+    return { ...e, nameEs: t?.nameEs ?? e.name, textEs: t?.textEs ?? e.text };
+  });
+
+  writeFileSync(join(DATA_TRANSLATED, archivo), JSON.stringify(salida, null, 2), 'utf-8');
+  console.log(`[translate] → data/translated/${archivo}`);
+  stats.fromCache += enCache;
+  stats.translated += traducciones.size;
+}
 
 export async function translateAll(args: CliArgs): Promise<TranslateStats> {
   mkdirSync(DATA_TRANSLATED, { recursive: true });
@@ -441,144 +383,30 @@ export async function translateAll(args: CliArgs): Promise<TranslateStats> {
     errors: [],
   };
 
-  const log = (msg: string): void => console.log(msg);
-  const err = (msg: string): void => console.error(msg);
+  if (args.dryRun) console.log('[translate] DRY RUN — no se gastan créditos LLM');
 
-  if (args.dryRun) {
-    log('[translate] DRY RUN — no se gastan créditos LLM');
-  }
-
-  // ─── Reglas ──────────────────────────────────────────────────────────
   if (args.type === 'rule' || args.type === 'all') {
-    const src = join(DATA_PROCESSED, 'special-rules.json');
-    if (!existsSync(src)) {
-      err(`[translate] No se encuentra ${src}. Corré primero \`npm run parse\`.`);
-      stats.failed++;
-    } else {
-      const raw = JSON.parse(readFileSync(src, 'utf-8')) as ParsedRule[];
-      log(`[translate] Reglas: ${raw.length} totales`);
-
-      const allBatches = chunk(raw, args.batchSize);
-      log(`[translate] Procesando en ${allBatches.length} batches (size=${args.batchSize}, concurrency=${args.concurrency})`);
-
-      let cacheHits = 0;
-      const allTranslated: TranslatedRule[] = [];
-      await processWithConcurrency(
-        allBatches,
-        args.concurrency,
-        async (batch) => {
-          try {
-            const before = batch.length;
-            const result = await translateBatchRules(batch, cache, args.force);
-            for (const r of result) {
-              const key = `rule:${r.id}:${hashKey(r.name + '|' + r.description)}`;
-              const cached = cache[key];
-              if (cached) {
-                const c = cached as { nameEs: string; descriptionEs: string };
-                if (c.nameEs === r.nameEs && c.descriptionEs === r.descriptionEs && !args.force) {
-                  // already cached
-                }
-              }
-            }
-            allTranslated.push(...result);
-            stats.attempted += before;
-            return result;
-          } catch (e) {
-            stats.failed++;
-            stats.errors.push({ batch: `rules[${batch[0]?.id}...]`, error: (e as Error).message });
-            // Fallback: keep originals
-            for (const r of batch) {
-              allTranslated.push({
-                id: r.id,
-                name: r.name,
-                nameEs: r.name,
-                description: r.description,
-                descriptionEs: r.description,
-                category: r.category,
-                source: r.source,
-              });
-            }
-            return [];
-          }
-        },
-        (done, total) => {
-          process.stdout.write(`\r[translate] rules: ${done}/${total} batches`);
-        },
-      );
-      process.stdout.write('\n');
-      cacheHits = allTranslated.filter((r) => {
-        // Approximate: if nameEs === name (no translation done) and forced fallback, but cache didn't have a key
-        // We just count actual API calls
-        return false;
-      }).length;
-      stats.fromCache += cacheHits;
-
-      // Save
-      const out = join(DATA_TRANSLATED, 'special-rules.json');
-      writeFileSync(out, JSON.stringify(allTranslated, null, 2), 'utf-8');
-      log(`[translate] → ${out.replace(ROOT + '\\', '')}`);
-      stats.translated = allTranslated.length;
-    }
+    await traducirArchivo('rule', 'rules.json', args, cache, stats);
+  }
+  if (args.type === 'item' || args.type === 'all') {
+    await traducirArchivo('item', 'magic-items.json', args, cache, stats);
   }
 
-  // ─── Items ───────────────────────────────────────────────────────────
-  if (args.type === 'item' || args.type === 'all') {
-    const src = join(DATA_PROCESSED, 'magic-items.json');
-    if (!existsSync(src)) {
-      err(`[translate] No se encuentra ${src}. Corré primero \`npm run parse\`.`);
-      stats.failed++;
-    } else {
-      const raw = JSON.parse(readFileSync(src, 'utf-8')) as ParsedItem[];
-      log(`[translate] Items: ${raw.length} totales`);
-
-      const allBatches = chunk(raw, args.batchSize);
-      log(`[translate] Procesando en ${allBatches.length} batches`);
-
-      const allTranslated: TranslatedItem[] = [];
-      await processWithConcurrency(
-        allBatches,
-        args.concurrency,
-        async (batch) => {
-          try {
-            const result = await translateBatchItems(batch, cache, args.force);
-            allTranslated.push(...result);
-            stats.attempted += batch.length;
-            return result;
-          } catch (e) {
-            stats.failed++;
-            stats.errors.push({ batch: `items[${batch[0]?.id}...]`, error: (e as Error).message });
-            for (const i of batch) {
-              allTranslated.push({
-                id: i.id,
-                name: i.name,
-                nameEs: i.name,
-                rarity: i.rarity,
-                points: i.points,
-                description: i.description,
-                descriptionEs: i.description,
-                source: i.source,
-              });
-            }
-            return [];
-          }
-        },
-        (done, total) => {
-          process.stdout.write(`\r[translate] items: ${done}/${total} batches`);
-        },
-      );
-      process.stdout.write('\n');
-
-      const out = join(DATA_TRANSLATED, 'magic-items.json');
-      writeFileSync(out, JSON.stringify(allTranslated, null, 2), 'utf-8');
-      log(`[translate] → ${out.replace(ROOT + '\\', '')}`);
-      stats.translated += allTranslated.length;
-    }
+  // Las unidades pasan sin traducir: son statlines y nombres propios.
+  const unidades = join(DATA_PROCESSED, 'units.json');
+  if (existsSync(unidades) && !args.dryRun) {
+    copyFileSync(unidades, join(DATA_TRANSLATED, 'units.json'));
+    console.log('[translate] units.json copiado sin traducir (statlines y nombres propios)');
   }
 
   saveCache(cache);
-  log(`\n[translate] Done. ${stats.translated} items traducidos, ${stats.failed} batches fallidos.`);
+  console.log(
+    `\n[translate] Listo. ${stats.translated} traducidas, ` +
+      `${stats.fromCache} de cache, ${stats.failed} lotes fallidos.`,
+  );
+  for (const e of stats.errors.slice(0, 5)) console.error(`  ${e.batch}: ${e.error}`);
   if (stats.failed > 0) {
-    err('[translate] Cache guardado. Re-ejecutá para reintentar los batches fallidos.');
+    console.error('[translate] Cache guardado. Re-ejecutá para reintentar los lotes fallidos.');
   }
   return stats;
 }

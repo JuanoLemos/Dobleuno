@@ -31,7 +31,7 @@ export default [
       'scripts/translate-tow.ts',
       'scripts/rules-sync.ts',
       'scripts/validate-corpus.ts',
-      'scripts/parser/**',
+      'scripts/__tests__/**',
       'apps/web/scripts/**',
     ],
   },

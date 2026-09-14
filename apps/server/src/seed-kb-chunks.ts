@@ -30,7 +30,9 @@ import { log } from './lib/logger.js';
 import type { NewKBChunk } from './db/schema/kb.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_PROCESSED = resolve(__dirname, '../../../data/processed');
+const DATA_RAIZ = resolve(__dirname, '../../../data');
+const DATA_PROCESSED = join(DATA_RAIZ, 'processed');
+const DATA_TRANSLATED = join(DATA_RAIZ, 'translated');
 
 /** Cuántas filas por INSERT. El corpus son miles de entradas. */
 const BATCH = 100;
@@ -52,6 +54,9 @@ interface CorpusRule {
   text: string;
   related: string[];
   source: Fuente;
+  /** Presentes solo si corrió el paso de traducción. */
+  nameEs?: string;
+  textEs?: string;
 }
 
 interface CorpusItem {
@@ -64,6 +69,8 @@ interface CorpusItem {
   associations: string[];
   text: string;
   source: Fuente;
+  nameEs?: string;
+  textEs?: string;
 }
 
 interface CorpusUnit {
@@ -96,8 +103,18 @@ interface CorpusUnit {
  */
 const PERMITE_FALTANTE = process.argv.includes('--allow-missing');
 
+/**
+ * Lee un archivo del corpus, prefiriendo la versión traducida.
+ *
+ * `data/translated/` solo existe si corrió el paso de traducción, que necesita
+ * DEEPSEEK_API_KEY. Sin él se siembra el corpus en inglés y las columnas
+ * name_es/description_es quedan en null; el Codex muestra el inglés y lo dice.
+ */
 function leerCorpus<T>(archivo: string): T[] | null {
-  const ruta = join(DATA_PROCESSED, archivo);
+  const traducido = join(DATA_TRANSLATED, archivo);
+  const ingles = join(DATA_PROCESSED, archivo);
+  const ruta = existsSync(traducido) ? traducido : ingles;
+
   if (!existsSync(ruta)) {
     if (PERMITE_FALTANTE) {
       log.warn(`Falta ${archivo}; seed omitido (--allow-missing).`);
@@ -106,7 +123,14 @@ function leerCorpus<T>(archivo: string): T[] | null {
     log.error(`Falta ${ruta}. Corré primero: npm run rules:sync`);
     process.exit(1);
   }
+  if (ruta === ingles) log.warn(`${archivo}: sin traducción, se siembra en inglés.`);
   return JSON.parse(readFileSync(ruta, 'utf-8')) as T[];
+}
+
+/** El español, o null si no se tradujo. Nunca el inglés disfrazado. */
+function es(traducido: string | undefined, original: string): string | null {
+  const v = traducido?.trim();
+  return v && v !== original.trim() ? v : null;
 }
 
 /** Inserta en tandas: un INSERT de miles de filas revienta el statement. */
@@ -174,6 +198,8 @@ async function main(): Promise<void> {
       slug: r.slug,
       name: r.name,
       description: r.text,
+      nameEs: es(r.nameEs, r.name),
+      descriptionEs: es(r.textEs, r.text),
       ruleType: r.ruleType,
       associations: r.associations,
       related: r.related,
@@ -193,6 +219,8 @@ async function main(): Promise<void> {
       type: i.type,
       cost: i.cost,
       description: i.text,
+      nameEs: es(i.nameEs, i.name),
+      descriptionEs: es(i.textEs, i.text),
       itemTypes: i.itemTypes,
       associations: i.associations,
       sourcePage: i.source.page,
@@ -245,13 +273,18 @@ async function main(): Promise<void> {
     chunks.push({ id, source, ref, title, text, faction, embedding: JSON.stringify(await provider.embed(text)) });
   };
 
+  // El oráculo responde en español y las preguntas vienen en español, así que
+  // el chunk indexa la traducción cuando existe. El nombre va siempre en
+  // inglés además: es como figura en el reglamento y en las listas de ejército.
   for (const r of reglas) {
-    await agregar(`chunk-${r.id}`, 'rule', r.id, r.name, `${r.name}. ${r.text}`, null);
+    const cuerpo = r.textEs?.trim() || r.text;
+    await agregar(`chunk-${r.id}`, 'rule', r.id, r.name, `${r.name}. ${cuerpo}`, null);
   }
 
   for (const i of items) {
     const costo = i.cost > 0 ? ` Costo: ${i.cost} puntos.` : '';
-    await agregar(`chunk-${i.id}`, 'item', i.id, i.name, `${i.name}.${costo} ${i.text}`, null);
+    const cuerpo = i.textEs?.trim() || i.text;
+    await agregar(`chunk-${i.id}`, 'item', i.id, i.name, `${i.name}.${costo} ${cuerpo}`, null);
   }
 
   for (const u of unidades) {

@@ -28,8 +28,7 @@ Dobleuno — companion app de mesa para Warhammer: The Old World. Monorepo PWA c
 - `doc/plan/` — PLAN, PLAN-OLEADAS
 - `doc/qa/` — Resultados de tests
 - `data/` — Mirror de tow.whfb.app (gitignored)
-- `scripts/` — Mirror, parse, translate, bump-version
-- `portal/` — Astro project (sitio estático de reglas)
+- `scripts/` — Mirror, parse, validate, translate, bump-version
 - `.harness/` — Mavis multi-agent team (orchestrator + reins)
 
 ## Code style

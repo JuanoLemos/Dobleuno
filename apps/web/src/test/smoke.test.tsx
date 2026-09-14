@@ -3,23 +3,28 @@ import { render } from '@testing-library/react';
 import { screen } from '@testing-library/dom';
 import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 
 import { AppShell } from '../components/layout/AppShell.js';
 import { Listas } from '../routes/Listas.js';
 import { Batalla } from '../routes/Batalla.js';
-import { Reglas } from '../routes/Reglas.js';
+import { CodexReglas } from '../routes/CodexReglas.js';
 import { Mesas } from '../routes/Mesas.js';
 import { Home } from '../routes/Home.js';
+import type * as codexApi from '../lib/codex-api.js';
 import esAR from '../i18n/es-AR.json';
 
-// Mock kb-sync para evitar llamadas de red en los tests
-vi.mock('../lib/kb-sync.js', () => ({
-  searchKB: vi.fn().mockResolvedValue({
-    units: [],
-    rules: [],
-    items: [],
-    fromCache: true,
+// Mock del cliente del Codex: en JSDOM no hay server ni IndexedDB usable.
+vi.mock('../lib/codex-api.js', async (original) => ({
+  ...(await original<typeof codexApi>()),
+  listarReglas: vi.fn().mockResolvedValue({
+    total: 0,
+    page: 1,
+    limit: 30,
+    entradas: [],
+    fromCache: false,
   }),
+  listarSecciones: vi.fn().mockResolvedValue([]),
 }));
 
 // Mock club-api para evitar fetch en JSDOM (no hay server)
@@ -67,10 +72,14 @@ vi.mock('../lib/auth-client.js', () => ({
 }));
 
 function wrap(ui: React.ReactNode, initialEntry = '/listas') {
+  // HelmetProvider hace falta desde la Ola 11: las rutas del Codex declaran
+  // su <meta robots> con Helmet, y sin provider el dispatcher no tiene contexto.
   return render(
-    <IntlProvider locale="es-AR" messages={esAR}>
-      <MemoryRouter initialEntries={[initialEntry]}>{ui}</MemoryRouter>
-    </IntlProvider>,
+    <HelmetProvider>
+      <IntlProvider locale="es-AR" messages={esAR}>
+        <MemoryRouter initialEntries={[initialEntry]}>{ui}</MemoryRouter>
+      </IntlProvider>
+    </HelmetProvider>,
   );
 }
 
@@ -87,10 +96,12 @@ describe('Smoke — Rutas principales', () => {
     expect(screen.getByText('Nueva batalla')).toBeInTheDocument();
   });
 
-  it('Reglas renderiza input de búsqueda y empty state', () => {
-    wrap(<Reglas />);
-    expect(screen.getByText('Reglamento')).toBeInTheDocument();
-    expect(screen.getByText('Buscá una regla o una unidad.')).toBeInTheDocument();
+  it('Codex de reglas renderiza buscador y empty state', async () => {
+    wrap(<CodexReglas />, '/reglas');
+    expect(screen.getByLabelText('Buscar reglas')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No hay reglas cargadas todavía.'),
+    ).toBeInTheDocument();
   });
 });
 

@@ -80,6 +80,16 @@ export const specialRules = pgTable(
     slug: text('slug').notNull(),
     name: text('name').notNull(),
     description: text('description').notNull(),
+    /**
+     * Traducción al español. null = todavía no se tradujo.
+     *
+     * Nullable y no default: el corpus en inglés se puede cargar sin gastar un
+     * solo crédito de LLM, y el cliente cae al inglés mostrándolo como tal. Un
+     * default con el texto en inglés haría indistinguible "traducido" de "sin
+     * traducir", que es justo el chequeo del validador.
+     */
+    nameEs: text('name_es'),
+    descriptionEs: text('description_es'),
     /** Sección del reglamento: 'special-rules', 'the-combat-phase', … (32). */
     ruleType: text('rule_type').notNull().default(''),
     associations: text('associations').array().notNull().default([]),
@@ -112,6 +122,9 @@ export const magicItems = pgTable(
     /** Costo en puntos. */
     cost: integer('cost').notNull().default(0),
     description: text('description').notNull(),
+    /** Traducción al español. null = todavía no se tradujo. */
+    nameEs: text('name_es'),
+    descriptionEs: text('description_es'),
     /** Familias: 'arcane-items', 'armour-runes', … (70 en el corpus). */
     itemTypes: text('item_types').array().notNull().default([]),
     associations: text('associations').array().notNull().default([]),

@@ -140,9 +140,7 @@ npm run dev
 | `npm run version:bump` | Bump version + commit + tag |
 | `curl -X POST http://localhost:3000/api/admin/kb/sync -H "Cookie: $SESSION"` | Dispara re-sync KB en background (requiere admin) |
 | `npm run translate` | Traduce las reglas (inglés → español) usando DeepSeek. Cache por hash, no re-traduce lo que no cambió. |
-| `npm run rules:sync` | Pipeline completo: `mirror + parse + translate + copy a portal/src/data/` |
-| `npm run portal:dev` | Levanta el portal Astro en `http://localhost:4321` |
-| `npm run portal:build` | Build del portal estático a `portal/dist/` |
+| `npm run rules:sync` | Pipeline completo: mirror → parse → validate → translate → validate |
 
 ---
 
@@ -180,7 +178,7 @@ Tipografía:
 - **Outfit** — body, UI
 - **JetBrains Mono** — stats, dados, números
 
-Sigilo "2·1" en heater shield (ver portal v0).
+Sigilo "2·1" en heater shield.
 
 ---
 
@@ -198,91 +196,71 @@ curl http://localhost:3000/api/health
 
 ---
 
-## Portal de reglas (Astro)
+## El Codex y su pipeline
 
-Adicional a la app mobile, hay un **portal estático** con el reglamento traducido y navegable. Pensado para:
+El reglamento navegable vive en la app, en `/reglas` y `/items`. Sirve para:
 
-- Buscar una regla rápido en el celu del rival.
-- Imprimir una regla individual y tenerla al lado de la mesa.
-- Compartir el link con un club que quiera consultar el reglamento en español.
+- Buscar una regla rápido en el celu, al lado de la mesa.
+- Imprimir una regla individual (`@media print` deja solo la ficha).
+- Leerla sin señal: lo que navegaste queda cacheado en el dispositivo.
 
-### Estructura
+Hasta la v1.1.0 esto era un sitio Astro aparte (`portal/`), que nunca se desplegó. Se retiró en la
+Ola 11; su última versión está en el tag `v1.1.0`. Ver
+[ADR-011](doc/arch/ADR-011-codex-react-noindex.md).
+
+Las rutas del Codex son públicas pero llevan `noindex`: el contenido deriva de publicaciones de
+Games Workshop y el análisis legal del proyecto lo marca como riesgo latente.
+
+### Estructura del pipeline
 
 ```
 Dobleuno/
 ├── data/
-│   ├── raw/              # HTML scrapeado de tow.whfb.app (gitignored)
-│   ├── processed/        # JSON parseado, en inglés (gitignored)
-│   └── translated/       # JSON en español, cache de traducción (gitignored)
-├── scripts/
-│   ├── mirror-tow.ts     # Descarga HTML respetando robots.txt
-│   ├── parse-tow.ts      # HTML → JSON (chequea con Zod)
-│   ├── translate-tow.ts  # JSON en → JSON es con DeepSeek, cache por hash
-│   └── rules-sync.ts     # Orquestador: corre los 3 + copia al portal
-└── portal/               # Astro project — el sitio estático
-    ├── src/
-    │   ├── data/         # Copia de data/translated/ (gitignored)
-    │   ├── pages/        # index, reglas/, items/, sobre
-    │   ├── components/   # Sigil, RuleCard, ItemCard, SearchBox, Footer
-    │   └── layouts/      # Base.astro
-    └── public/           # favicon, etc.
+│   ├── raw/              # JSON de cada página de tow.whfb.app (gitignored)
+│   ├── processed/        # Corpus normalizado, en inglés (gitignored)
+│   └── translated/       # Corpus en español + cache de traducción (gitignored)
+└── scripts/
+    ├── mirror-tow.ts     # Baja el sitio respetando robots.txt (manifest = sus sitemaps)
+    ├── parse-tow.ts      # JSON crudo → corpus normalizado
+    ├── validate-corpus.ts# Corta si el corpus salió degenerado
+    ├── translate-tow.ts  # Traduce con DeepSeek, cache por hash del source
+    └── rules-sync.ts     # Orquestador de los cuatro
 ```
 
-### Getting the rules data
-
-Para generar el contenido del portal (descarga + parse + traducción + copy):
+### Bajar el corpus
 
 ```bash
-# 1. Asegurate de tener DEEPSEEK_API_KEY en apps/server/.env
-#    (también podés exportarla: export DEEPSEEK_API_KEY=sk-...)
+# 1. DEEPSEEK_API_KEY en apps/server/.env si querés el paso de traducción.
 
-# 2. Corré el pipeline completo
+# 2. Pipeline completo
 npm run rules:sync
 
 # Flags útiles:
-#   --skip-mirror       si ya tenés data/raw/ y no querés re-descargar
-#   --skip-translate    si solo querés mirror + parse + copy (sin gastar LLM)
-#   --type=rule|item    solo reglas o solo items
-#   --force-translate   ignora cache de traducción
-#   --concurrency=4     más paralelismo (default 2)
+#   --skip-mirror       ya tenés data/raw/ y no querés re-descargar
+#   --skip-translate    mirror + parse + validate, sin gastar LLM
+#   --kind=rule|item|unit
+#   --force             re-baja lo cacheado
+#   --concurrency=4     más paralelismo en la traducción (default 2)
+
+# 3. Cargarlo en Postgres
+npm run kb:seed -w @dobleuno/server
 ```
 
-El script:
-1. Descarga HTML de `tow.whfb.app` (rate limit 2s, respeta robots.txt, User-Agent identificable).
-2. Parsea a JSON estructurado (chequea con Zod).
-3. Traduce con DeepSeek, en batches de 8, con cache por hash del source.
-4. Copia el resultado a `portal/src/data/`.
+El mirror completo son ~3124 páginas a 2s de rate limit: alrededor de hora y media, una sola vez,
+con cache en disco. El validador corre antes y después de traducir, y corta con exit 1 si el
+corpus salió degenerado — existe porque el pipeline terminó en verde durante dos meses escribiendo
+39 entradas basura y nadie abrió el JSON.
 
-### Build & dev del portal
+### Costo de la traducción
 
-```bash
-# Instalar Astro (la primera vez)
-cd portal && npm install && cd ..
-
-# Dev (auto-reload)
-npm run portal:dev
-# → http://localhost:4321
-
-# Build de producción
-npm run portal:build
-# → portal/dist/  (sitio estático, listo para subir a cualquier hosting)
-```
-
-El sitio no necesita runtime: es HTML + CSS + JS estático. Lo podés servir con nginx, Caddy, GitHub Pages, Cloudflare Pages, etc.
-
-### Costo y tiempo
-
-Para traducir las ~38 reglas especiales y ~23 items mágicos del manifest actual:
-
-- **Tiempo**: ~5-10 minutos (2-3 requests LLM en paralelo).
-- **Costo DeepSeek**: ~$0.02-$0.05 (depende del largo de las descripciones).
-- **Re-syncs incrementales** (solo cuando cambia el source): centavos, gracias al cache.
-
-Si más adelante agregás unidades (60+ Empire + 50+ Bretonia), el costo escala linealmente. ~$0.50-$1.00 para todo el set.
+El corpus son 1796 reglas y 751 items. En batches de 8 con cache por hash, la corrida completa es
+del orden de unos pocos dólares de DeepSeek; los re-syncs incrementales, centavos. Las unidades no
+se traducen: son statlines y nombres propios.
 
 ### Disclaimer de marca
 
-El portal declara explícitamente que Dobleuno es software libre, gratuito y no-comercial, y que no está afiliado a Games Workshop. Ver `/legal/terms` y `LICENSE.md` para los detalles.
+Dobleuno es software libre, gratuito y no-comercial, y no está afiliado ni respaldado por Games
+Workshop. Ver `/sobre`, `/legal/terms` y `LICENSE.md`.
 
 ---
 

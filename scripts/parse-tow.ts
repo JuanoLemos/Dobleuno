@@ -205,10 +205,45 @@ export function richTextToPlain(node: unknown): string {
   const tipo = n.nodeType ?? '';
 
   if (NODOS_CONTENEDOR.has(tipo)) return partes.filter((p) => p.trim()).join('\n').trim();
-  if (NODOS_LINEA.has(tipo) || tipo.startsWith('heading-')) return partes.join('').trim();
+  if (NODOS_LINEA.has(tipo) || tipo.startsWith('heading-')) {
+    return unirLinea(n.content, partes).trim();
+  }
 
-  // Inline (text, hyperlink, entry-hyperlink…): se concatena tal cual.
-  return partes.join('');
+  // Inline (text, hyperlink, entry-hyperlink…) y nodos sin nodeType, que el
+  // sitio usa como envoltorio: se concatenan, con la misma regla de vecindad.
+  return unirLinea(n.content, partes);
+}
+
+/**
+ * Une los hijos de un nodo de línea.
+ *
+ * Normalmente van pegados: un link en medio de una frase es parte de la frase,
+ * y separarlo la corta. Pero dos referencias vecinas, sin una palabra entre
+ * ellas, no son una frase: son una lista, y el sitio la marca solo con la
+ * adyacencia.
+ *
+ * El caso concreto es `specialRules` de una unidad. Venía
+ * "Counter ChargeFirst ChargeSwiftstride" — tres reglas pegadas en algo que no
+ * se puede leer ni volver a separar. Son 500 unidades del corpus.
+ */
+function unirLinea(hijos: RichNode[], partes: string[]): string {
+  let salida = '';
+  for (let i = 0; i < partes.length; i++) {
+    const vecinas = esReferencia(hijos[i - 1]?.nodeType) && esReferencia(hijos[i]?.nodeType);
+    if (vecinas && salida && partes[i]) salida += ', ';
+    salida += partes[i] ?? '';
+  }
+  return salida;
+}
+
+const NODOS_REFERENCIA = new Set([
+  'entry-hyperlink',
+  'embedded-entry-inline',
+  'embedded-entry-block',
+]);
+
+function esReferencia(tipo: string | undefined): boolean {
+  return tipo !== undefined && NODOS_REFERENCIA.has(tipo);
 }
 
 // ─── Helpers de lectura ───────────────────────────────────────────────────

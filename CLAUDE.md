@@ -57,7 +57,7 @@ Los 32 comandos de Diligencia están disponibles sin copia local. Referencia:
 
 - `tx` → Server: `apps/server/` (Express, Drizzle, better-auth, RAG)
 - `ui` → Cliente: `apps/web/` (React, Zustand, Tailwind, PWA)
-- `ux` → Portal y contenido: `portal/` (Astro), `doc/mecanicas/`, i18n
+- `ux` → Contenido y presentación: Codex (`apps/web/src/routes/Codex*`, `components/codex/`), `doc/mecanicas/`, i18n
 - `kb` → Knowledge base: `scripts/` (mirror, parse, translate), `kb_chunks`, embeddings
 
 ## Stack
@@ -72,7 +72,7 @@ Los 32 comandos de Diligencia están disponibles sin copia local. Referencia:
 
 $STACK: monorepo npm workspaces — Node 22 + Express 4 + TypeScript 5 + Drizzle ORM +
 PostgreSQL 16/pgvector (server); Vite 5.4 + React 18 + Tailwind 3.4 + Zustand + Dexie + PWA
-(cliente); Astro (portal); DeepSeek vía SDK `openai` (LLM); better-auth (sesiones).
+(cliente); DeepSeek vía SDK `openai` (LLM); better-auth (sesiones).
 
 ## Convenciones
 

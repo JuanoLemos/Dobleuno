@@ -158,7 +158,11 @@ export function validarArchivo(
   if (dup.size > 0) err(`${dup.size} slugs duplicados (ej: ${[...dup].slice(0, 3).join(', ')})`);
 
   // 7. Traducción: que el español sea idéntico al inglés significa que no tradujo.
-  if (opts.traducido) {
+  //
+  // Las unidades quedan afuera a propósito: no se traducen. Su contenido es el
+  // statline y los bloques de equipo, donde el valor está en los números y en
+  // los nombres propios, que la guía de traducción manda dejar en inglés.
+  if (opts.traducido && !esUnidad) {
     const conTraduccion = entradas.filter((e) => typeof e.textEs === 'string' && e.textEs);
     if (conTraduccion.length === 0) {
       err('ninguna entrada tiene textEs');
