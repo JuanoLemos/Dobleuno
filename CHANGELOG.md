@@ -7,6 +7,12 @@ Cada versión lista los cambios técnicos. Donde existe, se anida abajo la **bit
 
 ## [Unreleased]
 
+_Nada sin versionar todavía._
+
+---
+
+## [1.0.3] — 2026-09-14
+
 ### Changed
 - `doc/arch/SISTEMA.md` actualizado a v1.0.2: quedaba en el estado de Ola 7.1. Suma los
   endpoints y tablas de club y mesas (Olas 8 y 9), el SPA fallback del server, el portal Astro,
@@ -15,7 +21,6 @@ Cada versión lista los cambios técnicos. Donde existe, se anida abajo la **bit
   "ADR-006: KB sync" que choca con el ADR-006 real (React single source of truth) y listaba
   ADR-001 a 004, que nunca existieron como archivo — esas decisiones viven en `doc/plan/PLAN.md`.
 
----
 
 ## [1.0.2] — 2026-09-14
 

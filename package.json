@@ -1,6 +1,6 @@
 {
   "name": "dobleuno",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Dobleuno — companion app de mesa para Warhammer: The Old World",
   "type": "module",
