@@ -49,10 +49,26 @@ RUN npm run build -w @dobleuno/web
 # JavaScript, y sin los .sql el contenedor no puede migrar la base.
 RUN npm run build -w @dobleuno/server
 
-# Sólo prod deps para el runtime.
-RUN npm prune --omit=dev --legacy-peer-deps
+# ─── Stage 3: dependencias de producción ───────────────────────────────────
+#
+# Instalación limpia en vez de `npm prune --omit=dev` sobre el árbol de build.
+#
+# El prune borraba TODAS las dependencias, no sólo las de desarrollo: la raíz
+# del monorepo no declara ninguna —todo vive en los workspaces— así que prune
+# no encontraba nada que conservar. El contenedor moría en el primer import
+# (`Cannot find package 'dotenv'`), con dotenv correctamente declarado en
+# apps/server. `npm ci --omit=dev` lee el lockfile y respeta los workspaces.
+FROM node:22-alpine AS proddeps
+WORKDIR /app
 
-# ─── Stage 3: runtime ──────────────────────────────────────────────────────
+COPY package.json package-lock.json ./
+COPY apps/server/package.json ./apps/server/
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN npm ci --omit=dev --legacy-peer-deps
+
+# ─── Stage 4: runtime ──────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
@@ -60,15 +76,18 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV WEB_DIST_DIR=/app/web-dist
 
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=proddeps /app/node_modules ./node_modules
 COPY --from=build /app/apps/server/dist ./apps/server/dist
 COPY --from=build /app/apps/server/package.json ./apps/server/
 COPY --from=build /app/apps/server/.env.example ./apps/server/.env.example
 COPY --from=build /app/apps/web/dist ./web-dist
 COPY --from=build /app/package.json ./package.json
 
-# `packages/shared` no se copia: es type-only. Los 14 imports del server son
-# `import type` y TypeScript los borra al compilar, así que no existe en runtime.
+# `packages/shared` es type-only —los 14 imports del server son `import type` y
+# TypeScript los borra al compilar—, pero sigue siendo un workspace declarado,
+# así que npm deja un symlink en node_modules. Se copia para que ese link
+# resuelva en vez de quedar colgado.
+COPY --from=build /app/packages/shared ./packages/shared
 
 RUN addgroup -g 1001 -S nodejs && adduser -S dobleuno -u 1001 -G nodejs
 
