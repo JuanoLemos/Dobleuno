@@ -4,3 +4,4 @@ export * from './lists.js';
 export * from './battles.js';
 export * from './club.js';
 export * from './mesas.js';
+export * from './cronicas.js';

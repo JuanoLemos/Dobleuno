@@ -42,6 +42,16 @@ const EnvSchema = z.object({
    * Default: `<repo-root>/data/` (resuelto via import.meta.url, no depende de cwd).
    */
   KB_DATA_DIR: z.string().optional(),
+
+  /**
+   * Ola 10 — Donde se guardan las fotos de las crónicas.
+   * Default: `<repo-root>/uploads/`. En Docker es el volumen `dobleuno-uploads`
+   * montado en `/app/uploads`.
+   *
+   * Va separado de KB_DATA_DIR a propósito: la KB es cache regenerable, las
+   * fotos son dato de usuario irremplazable.
+   */
+  UPLOADS_DIR: z.string().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
