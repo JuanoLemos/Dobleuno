@@ -76,7 +76,18 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV WEB_DIST_DIR=/app/web-dist
 
-COPY --from=proddeps /app/node_modules ./node_modules
+# El árbol de dependencias ENTERO, no sólo /app/node_modules.
+#
+# npm no hoistea todo a la raíz: cuando hay conflicto de versiones deja
+# paquetes anidados en el workspace que los pide. Acá son 15, entre ellos
+# `dotenv` y `openai`, que viven en apps/server/node_modules. Copiando sólo la
+# raíz, el contenedor moría en el primer import con ERR_MODULE_NOT_FOUND —y el
+# oráculo se hubiera quedado sin su cliente.
+#
+# Copiar /app completo en vez de enumerar directorios es a propósito: qué se
+# hoistea y qué no lo decide npm según el árbol de versiones, y esa decisión
+# cambia sola cuando se actualiza una dependencia.
+COPY --from=proddeps /app ./
 COPY --from=build /app/apps/server/dist ./apps/server/dist
 COPY --from=build /app/apps/server/package.json ./apps/server/
 COPY --from=build /app/apps/server/.env.example ./apps/server/.env.example

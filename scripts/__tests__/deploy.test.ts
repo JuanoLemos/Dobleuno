@@ -81,6 +81,34 @@ describe('Dockerfile', () => {
     }
   });
 
+  it('lleva a la imagen los node_modules que npm dejó anidados', () => {
+    // npm no hoistea todo a la raíz: con conflicto de versiones deja paquetes
+    // adentro del workspace que los pide. Este proyecto tiene 15 así, incluidos
+    // `dotenv` y `openai`. Copiar sólo /app/node_modules dejaba al contenedor
+    // muriendo en el primer import, y eso sólo se veía construyendo la imagen.
+    const lock = JSON.parse(leer('package-lock.json')) as { packages: Record<string, unknown> };
+    const anidados = new Set(
+      Object.keys(lock.packages)
+        .filter((k) => /^(apps|packages)\/[^/]+\/node_modules\//.test(k))
+        .map((k) => k.slice(0, k.indexOf('/node_modules/'))),
+    );
+
+    const copiadas = sinComentarios(dockerfile)
+      .split('\n')
+      .filter((l) => /^COPY\s+--from=/.test(l.trim()))
+      .map((l) => l.trim().split(/\s+/)[1]!);
+
+    // `COPY --from=<stage> /app ./` cubre cualquier anidamiento presente y
+    // futuro, que es la razón de copiar el árbol entero.
+    const copiaTodo = copiadas.some((c) => /\/app\/?$/.test(c));
+    for (const ws of anidados) {
+      expect(
+        copiaTodo || copiadas.some((c) => c.includes(`${ws}/node_modules`)),
+        `${ws}/node_modules no llega a la imagen`,
+      ).toBe(true);
+    }
+  });
+
   it('el healthcheck apunta a readiness, no a liveness', () => {
     // /api/health devuelve 200 aunque la base esté caída: un contenedor sin
     // Postgres quedaría `healthy` para siempre.
