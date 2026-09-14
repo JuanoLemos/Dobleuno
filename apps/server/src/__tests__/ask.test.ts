@@ -56,7 +56,7 @@ describe('Ask endpoint — schema validation', () => {
   it('POST /api/ask con question válida devuelve la forma esperada', async () => {
     createCompletion.mockResolvedValueOnce({
       choices: [{ message: { content: 'Killing Blow aplica con un 6 natural al herir. [1]' } }],
-      model: 'deepseek-chat',
+      model: 'deepseek-flash',
     });
 
     const res = await request(app)

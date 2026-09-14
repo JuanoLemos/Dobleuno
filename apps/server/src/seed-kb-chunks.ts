@@ -23,7 +23,9 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { db, isDbHealthy } from './db/client.js';
+import { sql } from 'drizzle-orm';
+
+import { db, isDbHealthy, toRows } from './db/client.js';
 import { kbChunks, specialRules, magicItems, units } from './db/schema/kb.js';
 import { getEmbeddingProvider } from './lib/embeddings.js';
 import { log } from './lib/logger.js';
@@ -312,6 +314,27 @@ async function main(): Promise<void> {
 
   log.info(`Insertando ${chunks.length} chunks…`);
   await insertarEnTandas(kbChunks, chunks);
+
+  // El seed no puede declarar éxito sobre una tabla sin vectores.
+  //
+  // `embedding_vec` la llena el trigger de pgvector a partir del JSON. Si el
+  // trigger no puede castear —el caso típico es OPENAI_API_KEY seteada, que da
+  // 1536 dimensiones contra una columna vector(384)— la fila entra igual con la
+  // columna en NULL. Después el retrieval filtra IS NOT NULL, matchea cero, y
+  // el oráculo contesta "no tengo información suficiente" a todo, con el seed
+  // habiendo salido 0 y la tabla mostrando 3700 filas.
+  const [sinVector] = toRows(
+    await db.execute(sql`select count(*)::int as n from kb_chunks where embedding_vec is null`),
+  ) as Array<{ n: number }>;
+
+  if (sinVector && sinVector.n > 0) {
+    log.error(
+      `${sinVector.n} de ${chunks.length} chunks quedaron sin embedding_vec. ` +
+        'El oráculo no va a encontrar nada. Revisá que pgvector esté instalado ' +
+        'y que OPENAI_API_KEY NO esté seteada (ver .env.production.example).',
+    );
+    process.exit(1);
+  }
 
   log.info(
     `✓ Seed completo: ${reglas.length} reglas, ${items.length} items, ${unidades.length} unidades, ${chunks.length} chunks.`,

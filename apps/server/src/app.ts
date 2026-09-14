@@ -27,13 +27,19 @@ import { cronicasDir } from './lib/uploads.js';
 export function createApp(): Express {
   const app = express();
 
-  // CORS
-  app.use(
-    cors({
-      origin: env.CORS_ORIGIN,
-      credentials: true,
-    }),
-  );
+  // Detrás de un reverse proxy (Caddy, nginx), sin esto Express ve la conexión
+  // como HTTP y better-auth no setea las cookies `secure`. El login falla en
+  // producción con un síntoma incomprensible: el request de auth devuelve 200
+  // y la sesión no persiste.
+  if (env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+
+  // CORS sólo si hay un origen distinto declarado. Con el cliente servido
+  // desde este mismo server no hay nada entre orígenes que permitir.
+  if (env.CORS_ORIGIN) {
+    app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+  }
 
   // Body parsing
   app.use(express.json({ limit: '1mb' }));
@@ -85,8 +91,8 @@ export function createApp(): Express {
   // En dev local, el dist vive en `apps/web/dist` (relativo a este archivo).
   // En Docker, se monta como volumen en /app/web-dist (configurable por env).
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const WEB_DIST = process.env.WEB_DIST_DIR
-    ? path.resolve(process.env.WEB_DIST_DIR)
+  const WEB_DIST = env.WEB_DIST_DIR
+    ? path.resolve(env.WEB_DIST_DIR)
     : path.resolve(__dirname, '../../web/dist');
 
   if (existsSync(WEB_DIST)) {

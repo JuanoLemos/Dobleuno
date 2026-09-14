@@ -6,7 +6,11 @@
  * (útil para dev/test sin gastar API).
  */
 import OpenAI from 'openai';
-import { getDeepSeekConfig } from '../prompts/llm-client.js';
+import {
+  getDeepSeekConfig,
+  DEEPSEEK_TIMEOUT_MS,
+  DEEPSEEK_MAX_RETRIES,
+} from '../prompts/llm-client.js';
 import { log } from './logger.js';
 
 export interface CallLLMInput {
@@ -30,11 +34,31 @@ let cachedClient: OpenAI | null = null;
 function getClient(): OpenAI | null {
   if (cachedClient) return cachedClient;
   if (!process.env.DEEPSEEK_API_KEY) {
-    return null; // modo mock
+    // En producción, nunca. El mock devuelve prosa plausible con citas
+    // inventadas y HTTP 200: es indistinguible de una respuesta real para el
+    // usuario y para cualquier verificación automática, incluida la nuestra.
+    // Sin este guard, una ola puede cerrar declarando "oráculo verificado"
+    // siendo falso.
+    //
+    // Es redundante con el schema de env.ts, que ya exige la key en
+    // producción. La redundancia es deliberada: el costo de equivocarse acá es
+    // que la app mienta sobre el reglamento.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'DEEPSEEK_API_KEY no configurada. En producción no se usa el mock: ' +
+          'devolvería respuestas inventadas con apariencia de reales.',
+      );
+    }
+    return null; // modo mock, sólo dev y test
   }
   try {
     const cfg = getDeepSeekConfig();
-    cachedClient = new OpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL });
+    cachedClient = new OpenAI({
+      apiKey: cfg.apiKey,
+      baseURL: cfg.baseURL,
+      timeout: DEEPSEEK_TIMEOUT_MS,
+      maxRetries: DEEPSEEK_MAX_RETRIES,
+    });
     return cachedClient;
   } catch (err) {
     log.warn('DeepSeek no configurado, usando mock', { error: (err as Error).message });

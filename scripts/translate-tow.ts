@@ -27,7 +27,7 @@
  *
  * Variables de entorno:
  *   DEEPSEEK_API_KEY  requerida
- *   DEEPSEEK_MODEL    default: deepseek-chat
+ *   DEEPSEEK_MODEL    default: deepseek-flash
  *   DEEPSEEK_BASE_URL default: https://api.deepseek.com
  *
  * Uso:
@@ -37,7 +37,15 @@
  *   tsx scripts/translate-tow.ts --dry-run          # no gasta API
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  copyFileSync,
+  renameSync,
+  rmSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -48,9 +56,18 @@ const DATA_PROCESSED = join(ROOT, 'data', 'processed');
 const DATA_TRANSLATED = join(ROOT, 'data', 'translated');
 const CACHE_FILE = join(DATA_TRANSLATED, '.cache.json');
 
+/** Staging: acá se escribe la traducción antes de validarla. Ver `promover()`. */
+export const DATA_STAGING = join(ROOT, 'data', 'translated.tmp');
+
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? '';
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? 'deepseek-chat';
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? 'deepseek-flash';
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com';
+
+/** Techo por request. Un lote de 8 reglas largas no debería pasar de aquí. */
+const TIMEOUT_LOTE_MS = 120_000;
+
+/** Cada cuántos lotes se persiste el cache. */
+const LOTES_POR_GUARDADO = 5;
 
 // ─── CLI args ─────────────────────────────────────────────────────────────
 
@@ -103,9 +120,17 @@ function loadCache(): Cache {
   }
 }
 
+/**
+ * Guarda el cache de forma atómica.
+ *
+ * Se escribe a un temporal y se renombra: si el proceso muere a mitad de la
+ * escritura, el cache anterior queda intacto en vez de truncado.
+ */
 function saveCache(cache: Cache): void {
   mkdirSync(DATA_TRANSLATED, { recursive: true });
-  writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8');
+  const tmp = `${CACHE_FILE}.tmp`;
+  writeFileSync(tmp, JSON.stringify(cache, null, 2), 'utf-8');
+  renameSync(tmp, CACHE_FILE);
 }
 
 function hashKey(s: string): string {
@@ -162,6 +187,11 @@ async function callLlm(messages: ChatMessage[]): Promise<string> {
           Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
         },
         body: JSON.stringify(body),
+        // Sin esto, un lote que el proveedor acepta y no contesta bloquea la
+        // mitad del paralelismo durante los 5 minutos del headersTimeout de
+        // undici — por reintento. Es la misma causa raíz del cuelgue que se
+        // diagnosticó en el oráculo con `npm run deepseek:doctor`.
+        signal: AbortSignal.timeout(TIMEOUT_LOTE_MS),
       });
       if (!res.ok) {
         const txt = await res.text();
@@ -339,6 +369,7 @@ async function traducirArchivo(
 
   const traducciones = new Map<string, Traduccion>();
   const lotes = chunk(entradas, args.batchSize);
+  let desdeElUltimoGuardado = 0;
 
   await processWithConcurrency(
     lotes,
@@ -353,9 +384,18 @@ async function traducirArchivo(
         stats.errors.push({ batch: `${tipo}[${lote[0]?.id}…]`, error: (e as Error).message });
       }
       stats.attempted += lote.length;
+
+      // El cache se persistía UNA sola vez, al final de todo. Con ~320 lotes,
+      // morirse en el 250 —un 429, un Ctrl-C, un corte de luz— tiraba a la
+      // basura todo el trabajo ya pagado. Ahora el re-run arranca donde quedó.
+      if (++desdeElUltimoGuardado >= LOTES_POR_GUARDADO) {
+        desdeElUltimoGuardado = 0;
+        saveCache(cache);
+      }
     },
     (done, total) => process.stdout.write(`\r[translate] ${tipo}: ${done}/${total} lotes`),
   );
+  saveCache(cache);
   process.stdout.write('\n');
 
   // Lo que no se pudo traducir se escribe en inglés. El validador de
@@ -365,8 +405,17 @@ async function traducirArchivo(
     return { ...e, nameEs: t?.nameEs ?? e.name, textEs: t?.textEs ?? e.text };
   });
 
-  writeFileSync(join(DATA_TRANSLATED, archivo), JSON.stringify(salida, null, 2), 'utf-8');
-  console.log(`[translate] → data/translated/${archivo}`);
+  // Se escribe al staging, no al destino final: `rules-sync.ts` valida y recién
+  // entonces promueve.
+  //
+  // El seed prefiere data/translated/ sobre data/processed/ por EXISTIR, no por
+  // contenido. Y lo que no se pudo traducir se escribe en inglés. Sin staging,
+  // una traducción que falla entera deja un translated/rules.json 100% inglés
+  // que el seed va a preferir — habiendo pagado DeepSeek por nada, y sin que
+  // nada lo diga.
+  mkdirSync(DATA_STAGING, { recursive: true });
+  writeFileSync(join(DATA_STAGING, archivo), JSON.stringify(salida, null, 2), 'utf-8');
+  console.log(`[translate] → data/translated.tmp/${archivo}`);
   stats.fromCache += enCache;
   stats.translated += traducciones.size;
 }
@@ -395,7 +444,8 @@ export async function translateAll(args: CliArgs): Promise<TranslateStats> {
   // Las unidades pasan sin traducir: son statlines y nombres propios.
   const unidades = join(DATA_PROCESSED, 'units.json');
   if (existsSync(unidades) && !args.dryRun) {
-    copyFileSync(unidades, join(DATA_TRANSLATED, 'units.json'));
+    mkdirSync(DATA_STAGING, { recursive: true });
+    copyFileSync(unidades, join(DATA_STAGING, 'units.json'));
     console.log('[translate] units.json copiado sin traducir (statlines y nombres propios)');
   }
 
@@ -409,6 +459,26 @@ export async function translateAll(args: CliArgs): Promise<TranslateStats> {
     console.error('[translate] Cache guardado. Re-ejecutá para reintentar los lotes fallidos.');
   }
   return stats;
+}
+
+/**
+ * Mueve el staging al destino final. La llama `rules-sync.ts` DESPUÉS de
+ * validar, nunca antes.
+ *
+ * Antes el traductor escribía directo a `data/translated/`, y el validador
+ * corría después con `process.exit(1)` si el corpus estaba mal — pero dejaba
+ * los archivos malos en disco, donde el seed los prefiere por existir. O sea
+ * que el pipeline "fallaba" y el corpus roto quedaba igual listo para sembrar.
+ */
+export function promover(): void {
+  if (!existsSync(DATA_STAGING)) return;
+  mkdirSync(DATA_TRANSLATED, { recursive: true });
+  for (const archivo of ['rules.json', 'magic-items.json', 'units.json']) {
+    const origen = join(DATA_STAGING, archivo);
+    if (existsSync(origen)) renameSync(origen, join(DATA_TRANSLATED, archivo));
+  }
+  rmSync(DATA_STAGING, { recursive: true, force: true });
+  console.log('[translate] staging promovido a data/translated/');
 }
 
 async function main(): Promise<void> {

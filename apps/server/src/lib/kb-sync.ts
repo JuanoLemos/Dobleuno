@@ -24,10 +24,17 @@ import { log } from './logger.js';
 import { env } from '../env.js';
 import { ingestProcessedFiles, type IngestStats } from './kb-ingest.js';
 
-// ROOT del monorepo: apps/server/src/lib/kb-sync.ts → apps/server/src/lib → apps/server/src → apps/server → repo
-// (import.meta.dirname disponible en Node 22+; fallback por compat).
+// ROOT del monorepo, contando desde este archivo:
+//   src/lib → src → apps/server → apps → repo   (cuatro niveles)
+//
+// Tenía tres, así que resolvía a `apps/` y el default del data dir quedaba en
+// `apps/data`, mientras docker-compose monta el volumen en `/app/data`. En el
+// contenedor eso significa que el cache del mirror se escribe fuera del
+// volumen y se pierde en cada restart. Comparar con uploads.ts, que ya usa
+// cuatro. `src/` y `dist/` están a la misma profundidad, así que el mismo
+// cálculo vale bajo tsx y bajo node.
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '../../..');
+const REPO_ROOT = resolve(__dirname, '../../../..');
 const DEFAULT_DATA_DIR = resolve(REPO_ROOT, 'data');
 
 // Los scripts mirror-tow / parse-tow viven en /scripts (fuera del tsconfig.rootDir del server).
@@ -150,14 +157,32 @@ async function runSyncImpl(job: SyncJob, customDataDir?: string): Promise<void> 
 
   try {
     // Cargar mirror-tow / parse-tow dinámicamente (scripts fuera del tsconfig del server).
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    const mirrorMod = (await import('../../../../scripts/mirror-tow.ts' as string)) as {
-      mirrorAll: MirrorAllFn;
-    };
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    const parseMod = (await import('../../../../scripts/parse-tow.ts' as string)) as {
-      parseAll: ParseAllFn;
-    };
+    //
+    // Esto NO funciona en el build de producción, y conviene que se sepa: son
+    // archivos .ts, que Node no puede importar sin tsx, y `scripts/` no se
+    // copia a la imagen. Anda en dev y falla en el contenedor. Sin el mensaje
+    // de abajo, el síntoma sería un ERR_UNKNOWN_FILE_EXTENSION en una fila de
+    // ingest_log que nadie sabe interpretar.
+    let mirrorMod: { mirrorAll: MirrorAllFn };
+    let parseMod: { parseAll: ParseAllFn };
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      mirrorMod = (await import('../../../../scripts/mirror-tow.ts' as string)) as {
+        mirrorAll: MirrorAllFn;
+      };
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      parseMod = (await import('../../../../scripts/parse-tow.ts' as string)) as {
+        parseAll: ParseAllFn;
+      };
+    } catch (err) {
+      throw new Error(
+        'El sync de la KB no está disponible en este build: los scripts del ' +
+          'pipeline no se empaquetan en la imagen de producción. Corré ' +
+          '`npm run rules:sync` en una máquina con el repo y copiá el corpus al ' +
+          'volumen (ver doc/guias/deploy.md). ' +
+          `Detalle: ${(err as Error).message}`,
+      );
+    }
 
     // ── mirror ────────────────────────────────────────────────────────────
     const mirrorStats = await mirrorMod.mirrorAll(

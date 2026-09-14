@@ -1,6 +1,6 @@
 # Dobleuno — Roadmap
 
-> Roadmap vivo. Se actualiza al cerrar cada ola. Última: 2026-09-14 (v1.2.0).
+> Roadmap vivo. Se actualiza al cerrar cada ola. Última: 2026-09-14 (v2.0.0).
 >
 > **Mapa de módulos visibles:** [`MODULES.md`](doc/MODULES.md). El "qué ve el usuario" vive ahí. Este doc es el "qué se construye" (técnico).
 
@@ -8,6 +8,8 @@
 
 **Ola 9 — Mesas** ✅ cerrada (v1.0.0). **Ola 10 — Crónicas** ✅ cerrada (v1.1.0).
 **Ola 11 — Codex en React** ✅ cerrada (v1.2.0).
+**Ola 12 — Deploy consolidado** ✅ cerrada (v2.0.0). Con el roadmap original completo, lo que sigue
+se decide con el proyecto andando, no desde el plan de julio.
 
 El release v1.0.0 se cerró el 2026-09-13, arrastrando también trabajo temprano de Olas 10–11 que
 estaba en el árbol sin commitear (Home cream editorial y SPA fallback del server). Ver CHANGELOG.
@@ -40,14 +42,15 @@ estaba en el árbol sin commitear (Home cream editorial y SPA fallback del serve
 | **9** | **Mesas (calendar multi-mesa)** | ✅ Cerrado | 3-4 | API + UI admin + UI jugador + roles + anti-doble-booking | v1.0.0 |
 | **10** | **Crónicas (galería + AI stories)** | ✅ Cerrado | 3-4 | Upload fotos + DeepSeek story-gen + galería con visibilidad | v1.1.0 |
 | **11** | **Codex en React** | ✅ Cerrado | 2-3 | Pipeline arreglado (3124 entradas reales) + Codex React con piel propia + `noindex` + portal retirado | v1.2.0 |
-| **12** | **Polish + deploy consolidado** | ⏳ Pendiente | 2-3 | Deploy unificado (app + landing) | v2.0.0 |
+| **12** | **Deploy consolidado** | ✅ Cerrado | 2-3 | Un contenedor sirve API + cliente · imagen verificada en CI · config de producción endurecida | v2.0.0 |
 | 7+ | Fase 2 | ⏳ Diferido | +3-4 sem | Historial, stats agregadas, coaching, +facciones, multiplayer | — |
 
-## Métricas acumuladas (al cierre de v1.2.0)
+## Métricas acumuladas (al cierre de v2.0.0)
 
 | Métrica | Valor |
 |---|---|
-| Tests | 205 (167 server + 33 web + 5 pipeline) + 11 live skip |
+| Tests | 218 (180 server + 33 web + 5 pipeline) + 11 live skip |
+| CI | 2 jobs: `test` (lint → typecheck → migraciones → tests → builds → bundle) y `docker` (imagen → compose → smoke → SQL) |
 | Lint errors | 0 |
 | Typecheck errors | 0 |
 | Bundle web (main gzipped) | 180KB + vendor 53KB |
@@ -56,9 +59,10 @@ estaba en el árbol sin commitear (Home cream editorial y SPA fallback del serve
 | PWA precache | 565KB, 33 entries (offline-first funcional) |
 | Corpus | 1796 reglas · 751 items · 577 unidades (3124 páginas bajadas, 0 fallidas) |
 | Chunks en KB seed | ~3700 (1 por regla, 1 por item, 1-2 por unidad) — **sin verificar contra Postgres**, no hay Docker en la máquina del autor |
-| Endpoints API | `/api/health`, `/api/auth`, `/api/lists`, `/api/battles`, `/api/ask`, `/api/admin/kb/{sync,status,logs}`, `/api/club`, `/api/mesas`, `/api/sesiones`, `/api/mis-reservas`, `/api/cronicas` (+ `/fotos`, `/generar`), `/api/media/cronicas`, `/api/rules` (+ `/sections`, `/:slug`), `/api/items` (+ `/types`, `/:slug`), `/api/units` (+ `/:id`), `/api/kb/{search,stats}`, `/api` (account) |
+| Endpoints API | `/api/health` (+ `/ready`), `/api/auth`, `/api/lists`, `/api/battles`, `/api/ask`, `/api/admin/kb/{sync,status,logs}`, `/api/club`, `/api/mesas`, `/api/sesiones`, `/api/mis-reservas`, `/api/cronicas` (+ `/fotos`, `/generar`), `/api/media/cronicas`, `/api/rules` (+ `/sections`, `/:slug`), `/api/items` (+ `/types`, `/:slug`), `/api/units` (+ `/:id`), `/api/kb/{search,stats}`, `/api` (account) |
 | DB tables | `user`, `session`, `account`, `verification`, `lists`, `battles`, `units`, `special_rules`, `magic_items`, `scenarios`, `ingest_log`, `kb_chunks` (+ columna `users.is_admin` en v0.8.0, + `club_info` en v0.9.0, + `mesas`, `sesiones`, `reservas` en v1.0.0, + `cronicas`, `cronica_fotos` en v1.1.0; `units`/`special_rules`/`magic_items` recreadas con taxonomía en texto libre + `name_es`/`description_es` en v1.2.0) |
-| Mirror KB | Volumen `dobleuno-kbdata` (persiste entre reinicios), job queue in-memory |
+| Mirror KB | Volumen `dobleuno-kbdata`. El sync por endpoint no funciona en la imagen de producción (v2.0.0): el corpus se copia al volumen, ver deploy.md |
+| Imagen | Un contenedor sirve API + cliente, mismo origen. Verificada en CI, nunca en un servidor real |
 | Brand kit | 9 piezas de arte en `apps/web/public/brand/` (~17 MB; la copia del portal se retiró en la Ola 11) |
 
 ## Referencias

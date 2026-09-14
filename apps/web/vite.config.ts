@@ -48,6 +48,15 @@ export default defineConfig({
          * al precache (sin esto, el build falla al final).
          */
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        /**
+         * Ola 12 — Con la API y el SPA en el mismo origen, el navigateFallback
+         * del service worker pasa a cubrir también las rutas /api/*: una
+         * navegación a un endpoint (un redirect de auth, abrir la API en una
+         * pestaña) recibiría el index.html en vez de la respuesta real, y el
+         * síntoma es incomprensible. Antes no pasaba porque la API vivía en
+         * otro origen y el SW ni la veía.
+         */
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             // Ola 10 — Fotos de las crónicas. Va ANTES de la regla de /api/*
@@ -63,7 +72,14 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /^https:\/\/api\.dobleuno\.app\/api\/.*$/i,
+            /**
+             * Todo /api/ menos las fotos, que tienen su propia regla arriba.
+             *
+             * Era `^https://api.dobleuno.app/api/` — un host que con la
+             * topología de un solo origen no matchea nunca, así que esta regla
+             * estaba muerta y la API se quedaba sin caché offline.
+             */
+            urlPattern: /^\/api\/(?!media\/).*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'dobleuno-api',

@@ -87,12 +87,85 @@ jobs:
       - name: Server build
         run: npm run build:server
 
+      # VITE_API_URL vacio = URLs relativas. Es la topologia de un solo
+      # contenedor: la API y el cliente comparten origen.
       - name: Web build
         run: npm run build:web
+        env:
+          VITE_API_URL: ''
 
-      - name: Upload web build
-        uses: actions/upload-artifact@v4
+      # Si el bundle sale con una URL absoluta de desarrollo adentro, el smoke
+      # del contenedor NO lo detecta: en CI todo corre en localhost:3000, asi
+      # que un bundle mal armado funciona igual y el error recien aparece en el
+      # servidor de verdad.
+      - name: Verificar el bundle del cliente
+        run: node scripts/verificar-bundle.mjs
+
+  # ── La imagen ────────────────────────────────────────────────────────────
+  #
+  # Job aparte, y no un step del anterior, porque `services:` y `docker
+  # compose` no conviven bien en el mismo runner.
+  #
+  # Este job no es prevencion de regresion: es el UNICO lugar donde la imagen
+  # se puede verificar. No hay Docker en la maquina del autor, y por eso el
+  # Dockerfile llevaba meses sin construir (llamaba a un script inexistente)
+  # sin que nadie se enterara.
+  docker:
+    name: Imagen · compose · smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
-          name: web-dist
-          path: apps/web/dist/
-          retention-days: 7
+          node-version: '22'
+
+      # Secretos deterministas: no son reales, pero tienen que pasar la
+      # validacion de produccion (incluida la lista negra de placeholders).
+      - name: Configurar el entorno
+        run: |
+          cat > .env <<'ENVFILE'
+          POSTGRES_USER=dobleuno
+          POSTGRES_DB=dobleuno
+          POSTGRES_PASSWORD=ci-postgres-password-no-real
+          BETTER_AUTH_SECRET=ci-secret-deterministico-de-40-caracteres
+          # No puede ser localhost: el schema lo rechaza en produccion, que es
+          # justamente el guard que queremos que este activo tambien en CI.
+          # El smoke pega a localhost:3000 igual; esto es config, no destino.
+          BETTER_AUTH_URL=https://ci.dobleuno.invalid
+          DEEPSEEK_API_KEY=sk-ci-no-real
+          LOG_LEVEL=info
+          ENVFILE
+
+      - name: Build de la imagen
+        run: docker compose build
+
+      # --wait espera a que postgres este healthy, a que migrate termine con
+      # exito y a que server levante. Si migrate falla, `up` falla.
+      - name: Levantar el stack
+        run: docker compose up -d --wait
+
+      # Afirma sobre el cuerpo y el content-type, no sobre el status: un smoke
+      # que solo mira codigos HTTP pasa con el SPA sin JS y con el fallback
+      # comiendose la API.
+      - name: Smoke del stack
+        run: node scripts/smoke-stack.mjs http://localhost:3000
+
+      - name: Verificar el esquema en la base
+        run: |
+          consulta() { docker compose exec -T postgres psql -U dobleuno -d dobleuno "$@"; }
+          # 1/count(*) revienta con division by zero si la extension no esta.
+          consulta -v ON_ERROR_STOP=1 -c "select 1/count(*) from pg_extension where extname='vector';"
+          # Drizzle guarda su journal en su propio schema, no en public.
+          migs=$(consulta -tAc "select count(*) from drizzle.__drizzle_migrations;" | tr -d '[:space:]')
+          echo "migraciones aplicadas: $migs"
+          test "$migs" -ge 8
+
+      - name: Logs si algo falló
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+
+      - name: Bajar el stack
+        if: always()
+        run: docker compose down -v

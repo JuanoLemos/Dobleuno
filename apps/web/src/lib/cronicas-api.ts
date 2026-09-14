@@ -12,7 +12,7 @@
  * DELETE /api/cronicas/:id/fotos/:fotoId
  */
 import { api, ApiError } from './api.js';
-import { env } from './env.js';
+import { apiBase } from './env.js';
 import type { Cronica, CronicaFoto, TonoCronica, VisibilidadCronica } from '@dobleuno/shared';
 
 export interface GenerarInput {
@@ -74,7 +74,7 @@ export const cronicasApi = {
     const form = new FormData();
     form.append('foto', file, filename);
 
-    const res = await fetch(`${env.VITE_API_URL}/api/cronicas/${cronicaId}/fotos`, {
+    const res = await fetch(`${apiBase()}/api/cronicas/${cronicaId}/fotos`, {
       method: 'POST',
       credentials: 'include',
       body: form,
@@ -101,5 +101,5 @@ export const cronicasApi = {
 
 /** URL absoluta de una foto: el server la sirve desde su propio origen. */
 export function fotoUrl(foto: CronicaFoto): string {
-  return `${env.VITE_API_URL}${foto.url}`;
+  return `${apiBase()}${foto.url}`;
 }

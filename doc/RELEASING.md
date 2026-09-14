@@ -15,7 +15,27 @@ Dobleuno usa [Semantic Versioning 2.0.0](https://semver.org/). El versionado se 
 | `0.6.0` | ✅ Cerrado | Ola 5: Rules oracle (RAG) |
 | `0.7.0` | ✅ Cerrado | Ola 6: Polish + deploy |
 | `0.8.0` | ✅ Cerrado | Ola 7.1: KB sync admin (post-MVP patch) |
-| `1.0.0` | ⏳ Próximo | MVP público |
+| `0.9.0` | ✅ Cerrado | Ola 8: Home del club + shell con tabs |
+| `1.0.0` | ✅ Cerrado | Ola 9: Mesas y reservas |
+| `1.0.1`–`1.0.3` | ✅ Cerrado | Correcciones y adaptación a Diligencia |
+| `1.1.0` | ✅ Cerrado | Ola 10: Crónicas (relato con IA + galería) |
+| `1.2.0` | ✅ Cerrado | Ola 11: Codex en React + el pipeline por fin baja contenido |
+| `2.0.0` | ✅ Cerrado | Ola 12: deploy consolidado |
+
+### Por qué la Ola 12 es un major
+
+No hay ruptura de API — el contrato HTTP no cambió. El major marca dos cosas:
+
+1. **El hito**: es la primera versión que se puede desplegar. El `docker build` había fallado
+   siempre y nadie lo sabía.
+2. **Ruptura de compatibilidad de configuración**, que es real y afecta a cualquiera que tuviera un
+   deploy andando: en producción ahora son obligatorias `DATABASE_URL` (no localhost),
+   `BETTER_AUTH_URL` (no localhost), `BETTER_AUTH_SECRET` (32+ caracteres y fuera de la lista negra)
+   y `DEEPSEEK_API_KEY`; `OPENAI_API_KEY` pasa a estar **prohibida**; y `VITE_API_URL` cambia de
+   semántica: vacío ya no significa "caé a localhost" sino "mismo origen".
+
+   Un deploy que dependía de los defaults permisivos deja de arrancar. Es el punto, no un efecto
+   colateral — pero es exactamente lo que semver llama breaking.
 
 ## Esquema
 
@@ -45,9 +65,14 @@ A partir de Ola 7.1, una ola puede sub-dividirse cuando el scope se ejecuta como
    - `apps/web/package.json`
    - `apps/server/package.json`
    - `packages/shared/package.json`
-3. Tag git: `git tag -a v0.X.0 -m "Release v0.X.0"`
-4. Push tag: `git push origin v0.X.0`
-5. CI genera release automáticamente (futuro)
+3. Tag git: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+4. Push tag: `git push origin vX.Y.Z`
+
+Los pasos 2 y 3 los hace `node scripts/bump-version.js <major|minor|patch|X.Y.Z>`, que además mueve
+el contenido de `[Unreleased]` a la sección de la versión nueva en el CHANGELOG. **No pushea**: eso
+queda como decisión humana.
+
+No hay release automática desde CI, ni publicación de imágenes a un registry. Ver el ROADMAP.
 
 ## Convención de commits
 

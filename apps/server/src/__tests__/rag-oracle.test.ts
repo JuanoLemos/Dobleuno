@@ -13,6 +13,8 @@
  */
 import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 
+import type * as dbClient from '../db/client.js';
+
 const { createCompletion, dbExecute, dbHealthy } = vi.hoisted(() => ({
   createCompletion: vi.fn(),
   dbExecute: vi.fn(),
@@ -25,13 +27,17 @@ vi.mock('openai', () => ({
   },
 }));
 
-vi.mock('../db/client.js', () => ({
+vi.mock('../db/client.js', async (original) => ({
+  // `toRows` se usa tal cual: es una función pura que normaliza la forma del
+  // QueryResult, y mockearla sería mockear justamente lo que se quiere probar.
+  ...(await original<typeof dbClient>()),
   db: { execute: dbExecute },
   isDbHealthy: dbHealthy,
   pool: { query: vi.fn() },
 }));
 
 const { ask } = await import('../lib/rag.js');
+const { DEEPSEEK_DEFAULT_MODEL } = await import('../prompts/llm-client.js');
 const { resetLLMClient } = await import('../lib/llm-helper.js');
 const { DOBLEUNO_SYSTEM_PROMPT } = await import('../prompts/system.js');
 
@@ -110,7 +116,10 @@ describe('Oráculo — armado del prompt', () => {
       max_tokens: number;
       messages: Array<{ role: string; content: string }>;
     };
-    expect(body.model).toBe('deepseek-chat');
+    // El modelo sale de DEEPSEEK_MODEL, y el .env del autor puede pisarlo. Se
+    // afirma contra el default del código, no contra el ambiente: si no, el
+    // test verde depende de la máquina donde corre.
+    expect(body.model).toBe(process.env.DEEPSEEK_MODEL ?? DEEPSEEK_DEFAULT_MODEL);
     expect(body.temperature).toBe(0.3);
     expect(body.max_tokens).toBe(600);
     expect(body.messages[0]?.role).toBe('system');

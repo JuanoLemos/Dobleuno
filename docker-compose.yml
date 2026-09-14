@@ -1,67 +1,114 @@
-name: 'dobleuno-server'
+name: 'dobleuno'
+
+# Topología de la Ola 12: un solo contenedor sirve la API y el cliente desde el
+# mismo origen. Tres servicios, uno de ellos efímero.
+#
+#   postgres  la base, con pgvector
+#   migrate   one-shot: migra y sale. El server no arranca hasta que termine bien
+#   server    la app
+#
+# Antes de levantar:  cp .env.production.example .env && editarlo
+# Compose lee ese .env de la raíz automáticamente.
+
+x-imagen: &imagen
+  build:
+    context: .
+    dockerfile: apps/server/Dockerfile
+  image: dobleuno-server:local
 
 services:
   postgres:
-    # pgvector-enabled image (community-maintained, equivalente a pgvector/pgvector:pg16)
+    # pgvector-enabled (community-maintained, equivalente a pgvector/pgvector:pg16)
     image: pgvector/pgvector:pg16
     container_name: dobleuno-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: dobleuno
-      POSTGRES_PASSWORD: dobleuno_dev
-      POSTGRES_DB: dobleuno
+      POSTGRES_USER: ${POSTGRES_USER:-dobleuno}
+      # `:?` aborta el `up` si falta, en vez de caer a la password de desarrollo.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD (ver .env.production.example)}
+      POSTGRES_DB: ${POSTGRES_DB:-dobleuno}
     ports:
-      - '5432:5432'
+      # Atado a loopback: el server le habla por la red interna de compose.
+      # Publicarlo en 0.0.0.0 dejaba la base expuesta a internet en un VPS.
+      - '127.0.0.1:5432:5432'
     volumes:
       - dobleuno-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U dobleuno -d dobleuno']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-dobleuno} -d ${POSTGRES_DB:-dobleuno}']
       interval: 5s
       timeout: 5s
       retries: 5
 
-  server:
-    build:
-      context: .
-      dockerfile: apps/server/Dockerfile
-    container_name: dobleuno-server
-    restart: unless-stopped
+  # Migra y sale. Corre las migraciones de Drizzle y después pgvector.
+  #
+  # Es un servicio propio y no un entrypoint del server a propósito: si migrar
+  # fuera parte del arranque, una migración fallida daría un crash-loop y el
+  # error se perdería entre reintentos. Acá queda un contenedor exited con
+  # código ≠ 0 y los logs intactos. Y es lo que evita que el paso se saltee:
+  # hasta ahora estaba documentado como `docker compose exec` a mano, que es
+  # exactamente por qué nadie descubrió que ese comando no funcionaba.
+  migrate:
+    <<: *imagen
+    container_name: dobleuno-migrate
+    restart: 'no'
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      PORT: '3000'
-      DATABASE_URL: postgres://dobleuno:dobleuno_dev@postgres:5432/dobleuno
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-change-me-in-production-min-32-chars}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
-      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      DATABASE_URL: postgres://${POSTGRES_USER:-dobleuno}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dobleuno}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      # Ola 7.1 — emails administradores (comma-separated) y data dir
+      # migrate no usa ninguna de estas tres, pero comparte el env.ts del
+      # server: el schema valida el proceso entero al cargarse, no por
+      # entrypoint. Sin ellas, el contenedor de migraciones no arranca.
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?falta BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?falta BETTER_AUTH_URL}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?falta DEEPSEEK_API_KEY}
+    command: ['node', 'apps/server/dist/db/migrate.js']
+
+  server:
+    <<: *imagen
+    container_name: dobleuno-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgres://${POSTGRES_USER:-dobleuno}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dobleuno}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?falta BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?falta BETTER_AUTH_URL}
+      # CORS_ORIGIN va sin default: con la API y el cliente en el mismo origen
+      # no hace falta, y un default a localhost:5173 dejaba habilitado un
+      # origen de desarrollo en producción.
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?falta DEEPSEEK_API_KEY}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      # OPENAI_API_KEY queda deliberadamente afuera: ver .env.production.example.
+      # El provider de OpenAI devuelve 1536 dimensiones y la columna es
+      # vector(384), así que setearla rompe el oráculo en silencio.
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      # KB_DATA_DIR puede dejarse sin setear; dentro del contenedor apunta a /app/data
-      # que se monta como volumen nombrado abajo.
+      # Los tres paths van explícitos aunque la imagen ya traiga WEB_DIST_DIR:
+      # que estén acá es lo que hace visible dónde se montan los volúmenes.
+      WEB_DIST_DIR: /app/web-dist
+      KB_DATA_DIR: /app/data
+      UPLOADS_DIR: /app/uploads
     volumes:
-      # Ola 7.1 — Persiste el cache del mirror (HTML crudo de tow.whfb.app) y
-      # el output del parser (JSON estructurado) entre reinicios del contenedor.
-      # Sin este volumen, cada restart del container pierde el cache y el próximo
-      # sync re-descarga todo (lento y anti-rate-limit).
+      # Ola 7.1 — Cache del mirror y output del parser. Sin este volumen, cada
+      # restart pierde el cache y el próximo sync re-descarga todo el sitio.
       - dobleuno-kbdata:/app/data
       # Ola 10 — Fotos de las crónicas. Volumen aparte del de la KB a propósito:
-      # la KB es cache regenerable (npm run kb:rebuild la reconstruye), las fotos
-      # son dato de usuario irremplazable. Si comparten volumen, el día que
-      # alguien lo borre para forzar un re-sync se lleva puestas las fotos.
+      # la KB es cache regenerable, las fotos son dato de usuario irremplazable.
+      # Si comparten volumen, el día que alguien lo borre para forzar un re-sync
+      # se lleva puestas las fotos.
       - dobleuno-uploads:/app/uploads
     ports:
-      - '3000:3000'
-    # Si querés servir la web también desde el server, montá el dist:
-    # volumes:
-    #   - ./apps/web/dist:/app/web-dist:ro
-    # y agregá app.use(express.static('/app/web-dist')) en app.ts.
+      - '${PORT_PUBLICO:-3000}:3000'
 
 volumes:
   dobleuno-pgdata:

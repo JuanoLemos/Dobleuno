@@ -34,9 +34,18 @@ export const auth = betterAuth({
    * `dist/context/helpers.mjs:getTrustedOrigins()` — ver también la
    * nota de Ola 8 sobre por qué no andaba.
    */
+  /**
+   * Los orígenes de dev estaban hardcodeados, incluido el del portal Astro
+   * que se retiró en la Ola 11. En producción eso dejaba dos localhost
+   * confiables para siempre.
+   *
+   * Ahora sale de la config: el origen público (BETTER_AUTH_URL) siempre, más
+   * el dev server de Vite sólo fuera de producción.
+   */
   trustedOrigins: [
-    'http://localhost:5173',
-    'http://localhost:4321', // portal Astro también
+    new URL(env.BETTER_AUTH_URL).origin,
+    ...(env.CORS_ORIGIN ? [new URL(env.CORS_ORIGIN).origin] : []),
+    ...(env.NODE_ENV === 'production' ? [] : ['http://localhost:5173']),
   ],
   emailAndPassword: {
     enabled: true,

@@ -26,13 +26,12 @@ import { fileURLToPath } from 'node:url';
 
 import { mirrorAll } from './mirror-tow.js';
 import { parseAll } from './parse-tow.js';
-import { translateAll } from './translate-tow.js';
+import { translateAll, promover, DATA_STAGING } from './translate-tow.js';
 import { validarCorpus, type Hallazgo } from './validate-corpus.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const DATA_PROCESSED = join(ROOT, 'data', 'processed');
-const DATA_TRANSLATED = join(ROOT, 'data', 'translated');
 
 interface CliArgs {
   skipMirror: boolean;
@@ -159,10 +158,18 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
+    // Se valida el STAGING, no el destino. Recién si pasa, se promueve.
+    //
+    // Antes el traductor escribía directo a data/translated/ y esta validación
+    // corría después: hacía exit(1) y dejaba los archivos malos en disco, donde
+    // el seed los prefiere por existir. O sea que el pipeline "fallaba" y el
+    // corpus roto quedaba igual listo para sembrar.
     console.log('\n[sync] PASO 5/5: validar corpus traducido');
-    if (reportar('traducción', validarCorpus(DATA_TRANSLATED, { traducido: true }))) {
+    if (reportar('traducción', validarCorpus(DATA_STAGING, { traducido: true }))) {
+      console.error(`[sync] El staging queda en ${DATA_STAGING} para inspección.`);
       process.exit(1);
     }
+    promover();
   } else {
     console.log('\n[sync] PASO 4/5: translate (salteado)');
     console.log('[sync] PASO 5/5: validar traducción (salteado)');

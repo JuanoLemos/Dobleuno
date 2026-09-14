@@ -1,0 +1,19 @@
+{
+  // Cubre `scripts/` — el pipeline de contenido y los scripts de operación.
+  //
+  // No existía, y eso era lo que dejaba a scripts/ fuera de todo chequeo: el
+  // `projectService` de typescript-eslint busca el tsconfig.json más cercano, y
+  // al no encontrar ninguno en la raíz daba "not found by the project service"
+  // para cada archivo. La respuesta había sido ignorarlos uno por uno en
+  // eslint.config.mjs, así que el código que más fallas silenciosas produjo en
+  // este proyecto era justo el único sin lint ni typecheck.
+  //
+  // Los workspaces tienen su propio tsconfig.json y siguen mandando sobre sus
+  // archivos; éste sólo agarra lo que quedaba huérfano.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["scripts/**/*.ts"]
+}

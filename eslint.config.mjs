@@ -25,13 +25,14 @@ export default [
       '**/drizzle.config.ts',
       '**/eslint.config.mjs',
       '**/prettier.config.mjs',
+      // Sólo los scripts en JS plano: no tienen tipos y el parser type-checked
+      // no los puede leer. Todo `scripts/**/*.ts` SÍ pasa por lint desde la Ola
+      // 12 — era el código que más fallas silenciosas produjo en el proyecto y
+      // el único que no tenía chequeo, porque faltaba un tsconfig.json en la
+      // raíz y la respuesta había sido ignorarlos uno por uno.
       'scripts/bump-version.js',
-      'scripts/mirror-tow.ts',
-      'scripts/parse-tow.ts',
-      'scripts/translate-tow.ts',
-      'scripts/rules-sync.ts',
-      'scripts/validate-corpus.ts',
-      'scripts/__tests__/**',
+      'scripts/*.mjs',
+      'apps/server/scripts/**',
       'apps/web/scripts/**',
     ],
   },

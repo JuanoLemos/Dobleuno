@@ -18,7 +18,8 @@ data/
 **/*.tsbuildinfo
 .git
 .github
-docs
+# El directorio se llama `doc`, singular. Decía `docs` y no excluía nada.
+doc
 README.md
 LICENSE.md
 .eslintcache
