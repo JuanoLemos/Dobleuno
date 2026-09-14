@@ -21,7 +21,19 @@ const EnvSchema = z.object({
     .default('dev-secret-change-me-min-32-chars-recommended'),
   BETTER_AUTH_URL: z.string().url().default('http://localhost:3000'),
 
-  CORS_ORIGIN: z.string().url().default('http://localhost:5173'),
+  /**
+   * Origen permitido por CORS. Vacío = no montar CORS.
+   *
+   * Con la API y el cliente en el mismo origen (la topología de la Ola 12) no
+   * hace falta, y el default a localhost:5173 dejaba habilitado un origen de
+   * desarrollo en producción. Acepta vacío a propósito: era `.url()`, que
+   * rechaza el string vacío, así que dejarla en blanco no desactivaba CORS —
+   * impedía que el server arrancara.
+   */
+  CORS_ORIGIN: z
+    .string()
+    .default('')
+    .refine((v) => v === '' || URL.canParse(v), { message: 'CORS_ORIGIN debe ser una URL o vacío' }),
 
   DEEPSEEK_API_KEY: z.string().optional(),
   DEEPSEEK_MODEL: z.string().default('deepseek-flash'),

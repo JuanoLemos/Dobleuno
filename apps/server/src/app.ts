@@ -27,13 +27,11 @@ import { cronicasDir } from './lib/uploads.js';
 export function createApp(): Express {
   const app = express();
 
-  // CORS
-  app.use(
-    cors({
-      origin: env.CORS_ORIGIN,
-      credentials: true,
-    }),
-  );
+  // CORS sólo si hay un origen distinto declarado. Con el cliente servido
+  // desde este mismo server no hay nada entre orígenes que permitir.
+  if (env.CORS_ORIGIN) {
+    app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+  }
 
   // Body parsing
   app.use(express.json({ limit: '1mb' }));
