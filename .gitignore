@@ -15,4 +15,5 @@ uploads/
 data/raw/
 data/processed/
 data/translated/
+data/translated.tmp/
 nppBackup/

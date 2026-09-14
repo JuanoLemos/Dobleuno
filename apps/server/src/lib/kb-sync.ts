@@ -157,14 +157,32 @@ async function runSyncImpl(job: SyncJob, customDataDir?: string): Promise<void> 
 
   try {
     // Cargar mirror-tow / parse-tow dinámicamente (scripts fuera del tsconfig del server).
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    const mirrorMod = (await import('../../../../scripts/mirror-tow.ts' as string)) as {
-      mirrorAll: MirrorAllFn;
-    };
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    const parseMod = (await import('../../../../scripts/parse-tow.ts' as string)) as {
-      parseAll: ParseAllFn;
-    };
+    //
+    // Esto NO funciona en el build de producción, y conviene que se sepa: son
+    // archivos .ts, que Node no puede importar sin tsx, y `scripts/` no se
+    // copia a la imagen. Anda en dev y falla en el contenedor. Sin el mensaje
+    // de abajo, el síntoma sería un ERR_UNKNOWN_FILE_EXTENSION en una fila de
+    // ingest_log que nadie sabe interpretar.
+    let mirrorMod: { mirrorAll: MirrorAllFn };
+    let parseMod: { parseAll: ParseAllFn };
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      mirrorMod = (await import('../../../../scripts/mirror-tow.ts' as string)) as {
+        mirrorAll: MirrorAllFn;
+      };
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      parseMod = (await import('../../../../scripts/parse-tow.ts' as string)) as {
+        parseAll: ParseAllFn;
+      };
+    } catch (err) {
+      throw new Error(
+        'El sync de la KB no está disponible en este build: los scripts del ' +
+          'pipeline no se empaquetan en la imagen de producción. Corré ' +
+          '`npm run rules:sync` en una máquina con el repo y copiá el corpus al ' +
+          'volumen (ver doc/guias/deploy.md). ' +
+          `Detalle: ${(err as Error).message}`,
+      );
+    }
 
     // ── mirror ────────────────────────────────────────────────────────────
     const mirrorStats = await mirrorMod.mirrorAll(
