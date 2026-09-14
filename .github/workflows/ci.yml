@@ -130,7 +130,10 @@ jobs:
           POSTGRES_DB=dobleuno
           POSTGRES_PASSWORD=ci-postgres-password-no-real
           BETTER_AUTH_SECRET=ci-secret-deterministico-de-40-caracteres
-          BETTER_AUTH_URL=http://localhost:3000
+          # No puede ser localhost: el schema lo rechaza en produccion, que es
+          # justamente el guard que queremos que este activo tambien en CI.
+          # El smoke pega a localhost:3000 igual; esto es config, no destino.
+          BETTER_AUTH_URL=https://ci.dobleuno.invalid
           DEEPSEEK_API_KEY=sk-ci-no-real
           LOG_LEVEL=info
           ENVFILE

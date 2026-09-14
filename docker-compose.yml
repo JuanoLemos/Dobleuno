@@ -58,10 +58,12 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-dobleuno}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dobleuno}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      # El schema exige estas dos en producción; migrate no las usa, pero
-      # comparte el mismo env.ts y no arrancaría sin ellas.
+      # migrate no usa ninguna de estas tres, pero comparte el env.ts del
+      # server: el schema valida el proceso entero al cargarse, no por
+      # entrypoint. Sin ellas, el contenedor de migraciones no arranca.
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?falta BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?falta BETTER_AUTH_URL}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?falta DEEPSEEK_API_KEY}
     command: ['node', 'apps/server/dist/db/migrate.js']
 
   server:
