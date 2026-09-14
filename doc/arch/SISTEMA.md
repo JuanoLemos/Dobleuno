@@ -20,7 +20,7 @@ Un deploy = un club (single-tenant). Multi-club queda para Fase 2.
 │ Vite + React 18 + TS     │                │ Express 4 + TypeScript 5        │
 │ Tailwind 3.4 · PWA       │                │                                 │
 │ Zustand · Dexie          │  HTTPS REST    │ /api/auth      (better-auth)    │
-│ React Router 6           │ ─────────────► │ /api/health    (GET)            │
+│ React Router 6           │ ─────────────► │ /api/health(/ready)             │
 │                          │                │ /api/lists     (CRUD, Ola 3)    │
 │ TabShell (Ola 8)         │                │ /api/battles   (CRUD, Ola 4)    │
 │  Codex · Ejércitos       │                │ /api/rules|items|units (Ola 11) │
@@ -170,6 +170,7 @@ reglas, backend + LLM, hosting) están en `doc/plan/PLAN.md`, no como ADR propio
 | [ADR-009](ADR-009-calendar-data-model.md) | Calendar: mesas / sesiones / reservas + anti-doble-booking |
 | [ADR-010](ADR-010-cronicas-data-model.md) | Crónicas: tablas propias, storage local con capability URLs, relato anclado a la partida |
 | [ADR-011](ADR-011-codex-react-noindex.md) | Codex en React con `noindex`; portal Astro retirado |
+| [ADR-012](ADR-012-topologia-un-contenedor.md) | Un contenedor sirve API + cliente; migraciones como servicio; config de producción exigente |
 
 La decisión de **KB sync vía endpoint admin** (Ola 7.1) reemplazó al cron diario por un job
 queue in-memory triggereable con `POST /api/admin/kb/sync`, con cache persistente en el volumen

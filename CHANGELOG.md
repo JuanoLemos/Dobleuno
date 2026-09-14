@@ -11,6 +11,87 @@ _Nada sin versionar todavía._
 
 ---
 
+## [2.0.0] — 2026-09-14
+
+**Ola 12 — Deploy consolidado** (ADR-012). El ROADMAP pedía "deploy unificado". Al relevarlo
+apareció que el stack no levantaba, y que nunca había levantado: el `docker build` fallaba en la
+línea 32 desde que el archivo se escribió. Nadie se enteró porque CI no tocaba Docker y en la
+máquina del autor no hay Docker instalado.
+
+El major no es por ruptura de API: es el hito de la primera versión desplegable. Sí rompe
+compatibilidad de configuración — ver *Changed*.
+
+### Added
+- **Topología de un contenedor**: Express sirve la API y el cliente desde el mismo origen. El
+  compose tiene `postgres`, `migrate` (one-shot) y `server`.
+- `scripts/deepseek-doctor.ts` (`npm run deepseek:doctor`) — recorre key → TLS → autenticación →
+  saldo → generación, con timeout por paso. El primero que falla es la causa.
+- `scripts/smoke-stack.mjs` — afirma sobre el **cuerpo y el content-type**, no sobre el status. Un
+  smoke que mira códigos HTTP pasa con el SPA sin JS y con el fallback comiéndose la API.
+- `scripts/verificar-bundle.mjs` — corta si el cliente sale con una URL absoluta adentro. Hace falta
+  como gate propio: en CI todo corre en localhost, así que un bundle mal armado pasa el smoke y
+  falla recién en el servidor real.
+- Job `docker` en CI: build de la imagen, `compose up --wait`, smoke y dos consultas SQL. **Es el
+  único lugar donde la imagen se puede verificar.**
+- `.env.production.example`, que `deploy.md` mandaba a copiar desde la Ola 6 y no existía.
+- `/api/health/ready` — 503 sin base. `/api/health` sigue siendo liveness.
+- 17 tests estáticos sobre Dockerfile y compose; uno afirma que los scripts npm invocados existen.
+- Tests de las exigencias de producción y del guard de dimensiones de embeddings.
+
+### Fixed
+- **El `docker build` fallaba siempre.** Corría `npm run build -w @dobleuno/shared` y ese script no
+  existe: `packages/shared` es type-only.
+- **Las migraciones eran imposibles dentro del contenedor**, por tres causas independientes: los
+  `.sql` no llegaban (tsc sólo emite JS), el path era relativo al cwd y sólo cerraba vía `npm -w`, y
+  pgvector pedía `psql`, que `node:22-alpine` no trae.
+- **`npm prune --omit=dev` vaciaba `node_modules` entero**: la raíz del monorepo no declara
+  dependencias propias, así que prune no encontraba nada que conservar.
+- **npm deja 15 paquetes anidados** en `apps/server/node_modules` —entre ellos `dotenv` y `openai`—
+  y el runtime copiaba sólo la raíz.
+- **`VITE_API_URL` vacío no daba URLs relativas: daba `localhost:3000`.** El schema era
+  `z.string().url()`, que rechaza el string vacío, y el `safeParse` fallido caía a un objeto literal
+  que hardcodeaba localhost y de paso revertía las otras tres variables, sin un warning.
+- **`CORS_ORIGIN` vacío no desactivaba CORS: impedía arrancar.** Mismo patrón.
+- **`OPENAI_API_KEY` mataba el oráculo en silencio.** 1536 dimensiones contra `vector(384)`: el
+  trigger no podía castear, la excepción se degradaba a `RAISE WARNING`, las 3700 filas quedaban con
+  `embedding_vec` NULL, el retrieval matcheaba cero. El seed salía 0, la tabla mostraba 3700 filas y
+  el health daba 200.
+- **El mock del LLM podía responder en producción**, con prosa y citas inventadas y HTTP 200.
+- `kb-sync.ts` resolvía la raíz del repo con tres `..` en vez de cuatro: el cache del mirror se
+  escribía fuera del volumen y se perdía en cada restart.
+- El `dist` del server incluía los tests compilados, que importan vitest y viajaban a la imagen.
+- El service worker le servía el `index.html` a las rutas `/api/*` con un solo origen, y su regla de
+  caché apuntaba a un host que ya no matchea nada.
+- `trust proxy`, sin el cual las cookies `secure` no se setean detrás de Caddy.
+- El traductor persistía el cache **una sola vez al final**: morir en el lote 250 de 320 tiraba todo
+  el trabajo pagado. Ahora cada 5 lotes y de forma atómica.
+- El traductor escribía en inglés lo que no podía traducir, dentro de `data/translated/`, que el
+  seed prefiere por existir. Ahora hay staging con promoción sólo si la validación pasa.
+- `DEEPSEEK_MODEL` apuntaba a `deepseek-chat`, que la cuenta ya no ofrece. Pedir un modelo
+  inexistente no devuelve 404: la API acepta y se cuelga.
+- El cliente de DeepSeek se creaba sin timeout (el default del SDK son 10 minutos).
+- `/api/health` informaba la versión hardcodeada en `0.2.0`, con el repo en 1.2.0.
+
+### Changed
+- **Rompe compatibilidad de configuración.** En producción, `DATABASE_URL` y `BETTER_AUTH_URL` no
+  pueden ser localhost, `BETTER_AUTH_SECRET` necesita 32+ caracteres y no estar en la lista negra,
+  `DEEPSEEK_API_KEY` es obligatoria y `OPENAI_API_KEY` está prohibida. Antes **ninguna** variable lo
+  era: el server levantaba con el secreto de ejemplo sin decir nada.
+- `POSTGRES_PASSWORD` y `BETTER_AUTH_SECRET` usan `:?` en el compose: abortan el `up` en vez de caer
+  al valor de desarrollo. Postgres pasa a `127.0.0.1:5432`; estaba en `0.0.0.0`.
+- **`scripts/` entra a lint y typecheck.** Faltaba un `tsconfig.json` en la raíz, y la respuesta
+  había sido ignorar los seis archivos uno por uno. Eran 7 hallazgos, no los 30-150 estimados.
+- El build del server copia los `.sql` al `dist`, que ahora es autosuficiente y se prueba local.
+
+### Deuda conocida
+- **La imagen nunca se probó fuera de CI.** No hay Docker en la máquina del autor.
+- **El oráculo sigue sin verificarse punta a punta.** El diagnóstico está cerrado y no es nuestro:
+  DeepSeek acepta la request con HTTP 200 y no genera un token. Reintentado varias veces.
+- **El corpus está en inglés**: la traducción depende del mismo proveedor.
+- Sin deploy automático, sin registry, sin monitoreo. Sin escalado horizontal.
+
+---
+
 ## [1.2.0] — 2026-09-14
 
 **Ola 11 — Codex en React** (ADR-011). La ola empezó como un porteo de UI y terminó siendo,

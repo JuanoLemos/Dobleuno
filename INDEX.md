@@ -4,7 +4,7 @@ INSTRUCCIÓN: NO modificar este archivo sin entender el catálogo. CONTIENE el m
 
 Catálogo de documentación del proyecto. Mantenido por /version y /updoc.
 
-Última actualización global: 2026-09-14 (v1.2.0)
+Última actualización global: 2026-09-14 (v2.0.0)
 
 ## Docs críticos
 
@@ -12,8 +12,8 @@ Gestionados por /version. La versión se actualiza al cerrar sesión.
 
 | Archivo | Versión | Última actualización | Resumen (L0) |
 |---|---|---|---|
-| ROADMAP.md | v1.2.0 | 2026-09-14 | Olas 0–11 cerradas; 12 pendiente |
-| CHANGELOG.md | v1.2.0 | 2026-09-14 | Historial de versiones + bitácora por ola |
+| ROADMAP.md | v2.0.0 | 2026-09-14 | Olas 0–12 cerradas |
+| CHANGELOG.md | v2.0.0 | 2026-09-14 | Historial de versiones + bitácora por ola |
 | DILIGENCIA.md | v4.3.1 | 2026-09-14 | Sello de metodología del proyecto |
 | CLAUDE.md | v1.0.1 | 2026-09-14 | SSOT: variables de ruta, stack, reglas |
 | doc/MODULES.md | v1.2.0 | 2026-09-14 | Qué ve el usuario en cada módulo |
@@ -24,9 +24,9 @@ Gestionadas por /updoc. La versión se actualiza tras sync exitoso.
 
 | Archivo | Versión | Última actualización | Resumen (L0) |
 |---|---|---|---|
-| doc/guias/deploy.md | — | 2026-07-10 | Hetzner + Cloudflare + docker-compose + volumen kbdata |
+| doc/guias/deploy.md | v2.0.0 | 2026-09-14 | Un VPS, un compose: configurar, levantar, cargar el corpus, backups |
 | doc/guias/identidad.md | template | 2026-09-14 | Identidad del sistema (canónica de Diligencia) |
-| doc/RELEASING.md | — | 2026-07-09 | Convención de versionado y tags |
+| doc/RELEASING.md | v2.0.0 | 2026-09-14 | Convención de versionado, tabla de releases y fundamento del major |
 | doc/Sources.md | v1.2.0 | 2026-09-14 | Atribución de fuentes y qué se almacena del corpus |
 
 ## Mecánicas
@@ -48,7 +48,7 @@ vía `diligencia-lock.json`; las de dominio (TOW) son del proyecto.
 
 | Archivo | Versión | Última actualización | Resumen (L0) |
 |---|---|---|---|
-| doc/arch/SISTEMA.md | v1.2.0 | 2026-09-14 | Arquitectura, stack, endpoints, pipeline del oráculo y del Codex |
+| doc/arch/SISTEMA.md | v2.0.0 | 2026-09-14 | Arquitectura, stack, endpoints, pipeline del oráculo y del Codex |
 | doc/arch/ADR_SUMMARY.md | template | 2026-09-14 | Índice de decisiones arquitectónicas |
 | doc/arch/ADR-005-llm-provider.md | — | 2026-07-09 | DeepSeek como proveedor LLM |
 | doc/arch/ADR-006-react-single-source.md | — | 2026-07-10 | React app como single source of truth |
@@ -57,10 +57,11 @@ vía `diligencia-lock.json`; las de dominio (TOW) son del proyecto.
 | doc/arch/ADR-009-calendar-data-model.md | — | 2026-07-10 | Mesas / sesiones / reservas |
 | doc/arch/ADR-010-cronicas-data-model.md | — | 2026-09-14 | Crónicas: datos, storage y generación |
 | doc/arch/ADR-011-codex-react-noindex.md | — | 2026-09-14 | Codex en React, `noindex`, portal retirado |
+| doc/arch/ADR-012-topologia-un-contenedor.md | — | 2026-09-14 | Un contenedor, migraciones como servicio, config exigente |
 | doc/arch/bugs.md | template | 2026-09-14 | Bug tracker (P1/P2/P3) |
 | doc/arch/incidentes.md | template | 2026-09-14 | Incidentes runtime y crashes |
 | doc/arch/backups.md | template | 2026-09-14 | Estado de backups y pruning |
-| doc/arch/status-salud.md | v1.2.0 | 2026-09-14 | Diagnóstico de salud y deuda técnica conocida |
+| doc/arch/status-salud.md | v2.0.0 | 2026-09-14 | Diagnóstico de salud y deuda técnica conocida |
 | doc/arch/bitacora.md | template | 2026-09-14 | Índice de sesiones (append-only) |
 | doc/arch/walkthrough/_template.md | template | 2026-09-14 | Plantilla de detalle por sesión |
 

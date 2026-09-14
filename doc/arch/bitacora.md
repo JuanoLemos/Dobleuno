@@ -12,6 +12,7 @@ El detalle de cada sesión vive en `doc/arch/walkthrough/`.
 | 2026-09-14 | Ola 10 | Crónicas: relato con IA + galería de fotos | [walkthrough](walkthrough/2026-09-14_0400_ola-10_cronicas.md) | v1.1.0 |
 | 2026-09-14 | Ola 11 | Codex en React: el pipeline por fin baja contenido, el portal se retira | [walkthrough](walkthrough/2026-09-14_1300_ola-11_codex-react.md) | v1.2.0 |
 | 2026-09-14 | `/CBP` | Verificación del seed contra Postgres real: cierra el P1 de la Ola 11 | [post-cierre](walkthrough/2026-09-14_1300_ola-11_codex-react.md#post-cierre--verificación-del-seed-2026-09-14-misma-sesión) | v1.2.0 |
+| 2026-09-14 | Ola 12 | Deploy consolidado: la imagen nunca había construido, y ahora se verifica en CI | [walkthrough](walkthrough/2026-09-14_2000_ola-12_deploy-consolidado.md) | v2.0.0 |
 
 ---
 
