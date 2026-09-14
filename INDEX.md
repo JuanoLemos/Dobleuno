@@ -60,6 +60,7 @@ vía `diligencia-lock.json`; las de dominio (TOW) son del proyecto.
 | doc/arch/bugs.md | template | 2026-09-14 | Bug tracker (P1/P2/P3) |
 | doc/arch/incidentes.md | template | 2026-09-14 | Incidentes runtime y crashes |
 | doc/arch/backups.md | template | 2026-09-14 | Estado de backups y pruning |
+| doc/arch/status-salud.md | v1.2.0 | 2026-09-14 | Diagnóstico de salud y deuda técnica conocida |
 | doc/arch/bitacora.md | template | 2026-09-14 | Índice de sesiones (append-only) |
 | doc/arch/walkthrough/_template.md | template | 2026-09-14 | Plantilla de detalle por sesión |
 
