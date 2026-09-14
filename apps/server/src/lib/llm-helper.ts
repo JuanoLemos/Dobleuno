@@ -6,7 +6,11 @@
  * (útil para dev/test sin gastar API).
  */
 import OpenAI from 'openai';
-import { getDeepSeekConfig } from '../prompts/llm-client.js';
+import {
+  getDeepSeekConfig,
+  DEEPSEEK_TIMEOUT_MS,
+  DEEPSEEK_MAX_RETRIES,
+} from '../prompts/llm-client.js';
 import { log } from './logger.js';
 
 export interface CallLLMInput {
@@ -34,7 +38,12 @@ function getClient(): OpenAI | null {
   }
   try {
     const cfg = getDeepSeekConfig();
-    cachedClient = new OpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL });
+    cachedClient = new OpenAI({
+      apiKey: cfg.apiKey,
+      baseURL: cfg.baseURL,
+      timeout: DEEPSEEK_TIMEOUT_MS,
+      maxRetries: DEEPSEEK_MAX_RETRIES,
+    });
     return cachedClient;
   } catch (err) {
     log.warn('DeepSeek no configurado, usando mock', { error: (err as Error).message });

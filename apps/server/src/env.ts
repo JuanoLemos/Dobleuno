@@ -24,7 +24,7 @@ const EnvSchema = z.object({
   CORS_ORIGIN: z.string().url().default('http://localhost:5173'),
 
   DEEPSEEK_API_KEY: z.string().optional(),
-  DEEPSEEK_MODEL: z.string().default('deepseek-chat'),
+  DEEPSEEK_MODEL: z.string().default('deepseek-flash'),
   DEEPSEEK_BASE_URL: z.string().url().default('https://api.deepseek.com'),
 
   OPENAI_API_KEY: z.string().optional(),

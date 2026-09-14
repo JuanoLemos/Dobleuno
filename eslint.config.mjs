@@ -31,6 +31,7 @@ export default [
       'scripts/translate-tow.ts',
       'scripts/rules-sync.ts',
       'scripts/validate-corpus.ts',
+      'scripts/deepseek-doctor.ts',
       'scripts/__tests__/**',
       'apps/web/scripts/**',
     ],

@@ -27,7 +27,7 @@
  *
  * Variables de entorno:
  *   DEEPSEEK_API_KEY  requerida
- *   DEEPSEEK_MODEL    default: deepseek-chat
+ *   DEEPSEEK_MODEL    default: deepseek-flash
  *   DEEPSEEK_BASE_URL default: https://api.deepseek.com
  *
  * Uso:
@@ -49,7 +49,7 @@ const DATA_TRANSLATED = join(ROOT, 'data', 'translated');
 const CACHE_FILE = join(DATA_TRANSLATED, '.cache.json');
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? '';
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? 'deepseek-chat';
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? 'deepseek-flash';
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com';
 
 // ─── CLI args ─────────────────────────────────────────────────────────────
