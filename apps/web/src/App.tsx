@@ -18,6 +18,10 @@ const BattleEdit = lazy(() =>
 const Reglas = lazy(() => import('./routes/Reglas.js').then((m) => ({ default: m.Reglas })));
 const Legal = lazy(() => import('./routes/Legal.js').then((m) => ({ default: m.Legal })));
 const Mesas = lazy(() => import('./routes/Mesas.js').then((m) => ({ default: m.Mesas })));
+const Cronicas = lazy(() => import('./routes/Cronicas.js').then((m) => ({ default: m.Cronicas })));
+const CronicaDetalle = lazy(() =>
+  import('./routes/CronicaDetalle.js').then((m) => ({ default: m.CronicaDetalle })),
+);
 const Login = lazy(() => import('./routes/auth/Login.js').then((m) => ({ default: m.Login })));
 const Register = lazy(() =>
   import('./routes/auth/Register.js').then((m) => ({ default: m.Register })),
@@ -138,6 +142,22 @@ export default function App() {
             element={
               <Suspense fallback={<Loading />}>
                 <Mesas />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/cronicas"
+            element={
+              <Suspense fallback={<Loading />}>
+                <Cronicas />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/cronicas/:id"
+            element={
+              <Suspense fallback={<Loading />}>
+                <CronicaDetalle />
               </Suspense>
             }
           />

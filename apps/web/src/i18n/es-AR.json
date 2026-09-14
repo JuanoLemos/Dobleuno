@@ -112,5 +112,11 @@
   "auth.signup.consent.required": "Tenés que aceptar la Política de Privacidad y los Términos para crear una cuenta.",
   "club.loading": "Cargando info del club…",
   "club.more": "Ver más",
-  "club.edit": "Editar info del club"
+  "club.edit": "Editar info del club",
+  "cronicas.title": "Crónicas",
+  "cronicas.empty": "Todavía no escribiste ninguna crónica. Terminá una batalla y generala desde ahí.",
+  "cronicas.empty.club": "Nadie publicó una crónica todavía.",
+  "home.feature.cronicas.title": "Crónicas",
+  "home.feature.cronicas.desc": "El relato de cada partida, escrito a partir de lo que registró el tracker. Con las fotos de la mesa.",
+  "home.feature.cronicas.cta": "Ver crónicas"
 }

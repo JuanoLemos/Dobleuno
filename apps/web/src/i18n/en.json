@@ -108,5 +108,11 @@
   "auth.signup.consent.required": "You must accept the Privacy Policy and the Terms to create an account.",
   "club.loading": "Loading club info…",
   "club.more": "See more",
-  "club.edit": "Edit club info"
+  "club.edit": "Edit club info",
+  "cronicas.title": "Chronicles",
+  "cronicas.empty": "You have not written any chronicle yet. Finish a battle and generate it from there.",
+  "cronicas.empty.club": "Nobody has published a chronicle yet.",
+  "home.feature.cronicas.title": "Chronicles",
+  "home.feature.cronicas.desc": "The story of each game, written from what the tracker recorded. With photos from the table.",
+  "home.feature.cronicas.cta": "See chronicles"
 }

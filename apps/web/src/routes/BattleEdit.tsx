@@ -11,6 +11,7 @@ import { UnitStateCard } from '../components/batalla/UnitStateCard.js';
 import { Button } from '../components/ui/Button.js';
 import { Card } from '../components/ui/Card.js';
 import { battlesApi } from '../lib/battles-api.js';
+import { cronicasApi } from '../lib/cronicas-api.js';
 import { listsApi } from '../lib/lists-api.js';
 import { PHASE_LABELS, PHASE_DESCRIPTIONS, makeLog, nextPhase } from '../lib/battle-engine.js';
 import { useUIStore } from '../lib/store.js';
@@ -23,6 +24,7 @@ export function BattleEdit() {
   const [battle, setBattle] = useState<BattleState | null>(isNew ? null : null);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [abriendoCronica, setAbriendoCronica] = useState(false);
   const [showSetup, setShowSetup] = useState(isNew);
   const [myLists, setMyLists] = useState<Array<{ id: string; name: string; faction: string }>>([]);
   const showToast = useUIStore((s) => s.showToast);
@@ -132,6 +134,27 @@ export function BattleEdit() {
   function updateUnit(u: BattleUnit): void {
     if (!battle) return;
     setBattle({ ...battle, units: battle.units.map((x) => (x.id === u.id ? u : x)) });
+  }
+
+  /**
+   * Abre la crónica de esta batalla, creándola si todavía no existe.
+   *
+   * La crónica nace vacía: el relato y las fotos se cargan desde su propia
+   * pantalla. Así el usuario puede subir fotos antes de generar, que es el
+   * orden real de las cosas.
+   */
+  async function irACronica(): Promise<void> {
+    if (!battle) return;
+    setAbriendoCronica(true);
+    try {
+      const existente = await cronicasApi.porBatalla(battle.id);
+      const cronica = existente ?? (await cronicasApi.create(battle.id, battle.name));
+      navigate(`/cronicas/${cronica.id}`);
+    } catch (err) {
+      showToast('Error: ' + (err as Error).message, 'error');
+    } finally {
+      setAbriendoCronica(false);
+    }
   }
 
   /**
@@ -253,6 +276,11 @@ export function BattleEdit() {
               {new Date(battle.finishedAt).toLocaleString()}
             </p>
           )}
+          <div className="mt-3">
+            <Button variant="secondary" size="sm" onClick={() => void irACronica()} loading={abriendoCronica}>
+              <Sparkles size={12} /> Crónica de la partida
+            </Button>
+          </div>
         </Card>
       )}
     </div>

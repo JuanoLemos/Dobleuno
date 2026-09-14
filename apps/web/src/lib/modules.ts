@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { BookOpen, ScrollText, CalendarDays } from 'lucide-react';
+import { BookOpen, ScrollText, CalendarDays, Images } from 'lucide-react';
 
 /**
  * Registro central de módulos del shell (Ola 8 — ADR-007).
@@ -11,11 +11,10 @@ import { BookOpen, ScrollText, CalendarDays } from 'lucide-react';
  *   icon     — componente de lucide-react.
  *   requiresAuth — si true, muestra lock-screen al usuario no logueado.
  *
- * Solo listamos módulos IMPLEMENTADOS. Cuando llegue Crónicas (Ola 10),
- * se agrega acá.
+ * Solo listamos módulos IMPLEMENTADOS.
  */
 
-export type ModuleId = 'codex' | 'listas' | 'mesas';
+export type ModuleId = 'codex' | 'listas' | 'mesas' | 'cronicas';
 
 export interface ModuleDef {
   id: ModuleId;
@@ -46,6 +45,13 @@ export const MODULES: ModuleDef[] = [
     label: 'Mesas',
     route: '/mesas',
     icon: CalendarDays,
+    requiresAuth: true,
+  },
+  {
+    id: 'cronicas',
+    label: 'Crónicas',
+    route: '/cronicas',
+    icon: Images,
     requiresAuth: true,
   },
 ];

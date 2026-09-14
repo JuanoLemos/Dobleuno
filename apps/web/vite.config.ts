@@ -50,6 +50,19 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         runtimeCaching: [
           {
+            // Ola 10 — Fotos de las crónicas. Va ANTES de la regla de /api/*
+            // porque si no las trata como respuestas de API: NetworkFirst con
+            // 24h de expiración, para archivos que son inmutables por diseño
+            // (cada uno lleva su propio UUID en el nombre).
+            urlPattern: /\/api\/media\/cronicas\/.*$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'dobleuno-fotos',
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             urlPattern: /^https:\/\/api\.dobleuno\.app\/api\/.*$/i,
             handler: 'NetworkFirst',
             options: {
