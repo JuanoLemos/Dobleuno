@@ -13,14 +13,16 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # Misma imagen que docker-compose.yml: 0001_pgvector.sql pide la extension
+        # `vector`, que la imagen oficial de postgres no trae.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: dobleuno
           POSTGRES_PASSWORD: dobleuno_dev
           POSTGRES_DB: dobleuno
         ports: ['5432:5432']
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U dobleuno -d dobleuno"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
@@ -51,6 +53,15 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      # Sin esto la DB del runner queda vacía y los tests contra Postgres pasan
+      # por el camino degradado (500/503), sin ejercitar nada: ni el esquema, ni
+      # el UNIQUE(sesion_id, user_id) que sostiene el anti-doble-booking de Ola 9.
+      - name: Migrate DB
+        run: npm run db:migrate -w @dobleuno/server
+
+      - name: Install pgvector extension
+        run: npm run pgvector:install -w @dobleuno/server
 
       - name: Server tests
         run: npm test -w @dobleuno/server
