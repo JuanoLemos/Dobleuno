@@ -229,7 +229,9 @@ async function verificarChat(key: string): Promise<void> {
       body: JSON.stringify({
         model: MODELO,
         messages: [{ role: 'user', content: 'Respondé sólo con la palabra: listo' }],
-        max_tokens: 10,
+        // Suficiente para que el razonamiento no se coma la respuesta entera:
+        // estos modelos descuentan los tokens de pensar del mismo presupuesto.
+        max_tokens: 400,
         temperature: 0,
       }),
       signal: AbortSignal.timeout(TIMEOUT_CHAT_MS),
@@ -239,13 +241,31 @@ async function verificarChat(key: string): Promise<void> {
     if (!res.ok) fallo(`HTTP ${res.status}`, (await res.text()).slice(0, 300));
 
     const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: { total_tokens?: number };
+      choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
+      usage?: {
+        total_tokens?: number;
+        completion_tokens?: number;
+        completion_tokens_details?: { reasoning_tokens?: number };
+      };
     };
     const ms = Date.now() - t0;
-    const texto = data.choices?.[0]?.message?.content?.trim() ?? '';
-    if (!texto) fallo('La respuesta vino vacía', JSON.stringify(data).slice(0, 200));
-    ok(`"${texto}" · ${data.usage?.total_tokens ?? '?'} tokens`, ms);
+    const choice = data.choices?.[0];
+    const texto = choice?.message?.content?.trim() ?? '';
+    const razonando = data.usage?.completion_tokens_details?.reasoning_tokens ?? 0;
+
+    if (!texto) {
+      fallo(
+        `La respuesta vino vacía (finish_reason: ${choice?.finish_reason ?? '?'})`,
+        razonando > 0
+          ? `El modelo gastó ${razonando} tokens razonando y no le quedaron para responder. ` +
+              'Estos modelos descuentan el razonamiento del mismo max_tokens.'
+          : JSON.stringify(data).slice(0, 200),
+      );
+    }
+
+    // El reparto importa: es lo que dimensiona el max_tokens del resto del código.
+    const reparto = razonando > 0 ? ` · ${razonando} razonando` : '';
+    ok(`"${texto}" · ${data.usage?.completion_tokens ?? '?'} tokens${reparto}`, ms);
 
     if (ms > 20_000) {
       aviso(`${ms} ms para 10 tokens. Con 2547 entradas, la traducción sería inviable.`);

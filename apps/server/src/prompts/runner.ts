@@ -84,7 +84,7 @@ async function askDobleuno(
   const systemPrompt = buildPrompt(context);
   const response = await client.chat.completions.create({
     model,
-    max_tokens: options.maxTokens ?? 1500,
+    max_tokens: options.maxTokens ?? 3000,
     temperature: options.temperature ?? 0.3,
     top_p: options.topP ?? 0.9,
     messages: [

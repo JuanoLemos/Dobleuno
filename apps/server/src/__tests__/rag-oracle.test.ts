@@ -121,7 +121,11 @@ describe('Oráculo — armado del prompt', () => {
     // test verde depende de la máquina donde corre.
     expect(body.model).toBe(process.env.DEEPSEEK_MODEL ?? DEEPSEEK_DEFAULT_MODEL);
     expect(body.temperature).toBe(0.3);
-    expect(body.max_tokens).toBe(600);
+    // 2000, no 600: los modelos de razonamiento de DeepSeek descuentan los
+    // tokens de pensar del mismo presupuesto, y en una consulta de reglas eso
+    // son 850-1200 antes de escribir una palabra de la respuesta. Medido
+    // contra la API: con 600, `content` vuelve vacío.
+    expect(body.max_tokens).toBe(2000);
     expect(body.messages[0]?.role).toBe('system');
     expect(body.messages[0]?.content).toBe(DOBLEUNO_SYSTEM_PROMPT);
     expect(body.messages[1]?.content).toContain('[1] Fuente: unit');
@@ -252,12 +256,18 @@ describe('Oráculo — errores del LLM', () => {
     );
   });
 
-  it('una respuesta vacía del LLM no rompe el pipeline', async () => {
+  it('una respuesta vacía del LLM falla en vez de devolver una respuesta en blanco', async () => {
     llmAnswers(null);
 
-    const res = await ask({ question: '¿Y si el LLM no devuelve nada?' });
-
-    expect(res.answer).toBe('');
-    expect(res.citations).toEqual([]);
+    // Este test afirmaba lo contrario: que `answer` quedara en ''. Eso era
+    // codificar un fallo silencioso — el usuario recibía HTTP 200 con una
+    // respuesta vacía y cero citas, indistinguible de "el oráculo no sabe".
+    //
+    // Pasa de verdad: con un modelo de razonamiento y el presupuesto viejo de
+    // 600 tokens, el razonamiento se comía todo y `content` llegaba vacío con
+    // finish_reason "length". Ahora se propaga y la ruta devuelve 500.
+    await expect(ask({ question: '¿Y si el LLM no devuelve nada?' })).rejects.toThrow(
+      /respuesta vacía/,
+    );
   });
 });

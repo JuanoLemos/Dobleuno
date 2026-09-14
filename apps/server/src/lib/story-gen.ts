@@ -266,7 +266,7 @@ export async function generarCronica(input: GenerarCronicaInput): Promise<Cronic
     system: CRONICA_SYSTEM_PROMPT,
     user: buildCronicaPrompt(ctx),
     temperature: 0.8, // más alta que el oráculo: acá queremos prosa, no precisión literal
-    maxTokens: 1200,
+    maxTokens: 3000,
     mockKind: 'cronica',
   });
 
@@ -286,7 +286,7 @@ export async function generarCronica(input: GenerarCronicaInput): Promise<Cronic
 
 IMPORTANTE: en un intento anterior mencionaste nombres que NO están en esta partida: ${alucinaciones.join(', ')}. Usá únicamente los nombres de unidad que aparecen en el bloque "Unidades".`,
       temperature: 0.6,
-      maxTokens: 1200,
+      maxTokens: 3000,
       mockKind: 'cronica',
     });
     const segundo = validarCronica(reintento, ctx);

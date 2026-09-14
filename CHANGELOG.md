@@ -7,7 +7,21 @@ Cada versión lista los cambios técnicos. Donde existe, se anida abajo la **bit
 
 ## [Unreleased]
 
-_Nada sin versionar todavía._
+### Fixed
+- **El oráculo devolvía respuestas vacías con HTTP 200.** Los modelos de razonamiento de DeepSeek
+  descuentan los tokens de pensar del mismo `max_tokens`, y en una consulta de reglas eso son
+  850-1200 antes de escribir una palabra. Con los 600 que pedía el pipeline, `finish_reason` volvía
+  `length`, `reasoning_tokens` daba 600 de 600 y `content` llegaba vacío. Presupuestos subidos
+  (oráculo 2000, crónicas 3000, runner 3000) y, sobre todo, `callLLM` ahora **tira** ante una
+  respuesta vacía en vez de devolver `''`: había un test que afirmaba que eso "no rompe el
+  pipeline", o sea que el fallo silencioso estaba escrito como contrato.
+- El traductor detecta `finish_reason: length` y reintenta el lote con un error que dice por qué;
+  el batch por defecto baja de 8 a 5 por el mismo motivo.
+
+### Deuda conocida
+- **El retrieval del oráculo no es semántico.** Verificado punta a punta contra DeepSeek: responde,
+  cita, y trae los chunks equivocados. El provider determinístico es un bag-of-words hasheado. Ver
+  `status-salud.md`.
 
 ---
 

@@ -78,7 +78,8 @@ export async function ask(input: AskInput): Promise<AskOutput> {
     system: DOBLEUNO_SYSTEM_PROMPT,
     user: userPrompt,
     temperature: 0.3,
-    maxTokens: 600,
+    // Los tokens de razonamiento salen de acá: ver MAX_TOKENS_DEFAULT.
+    maxTokens: 2000,
   });
 
   // 5. Extraer y validar citations

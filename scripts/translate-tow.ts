@@ -85,7 +85,9 @@ function parseArgs(argv: string[]): CliArgs {
     force: false,
     concurrency: 2,
     dryRun: false,
-    batchSize: 8,
+    // Bajado de 8: los modelos de razonamiento descuentan los tokens de pensar
+    // del mismo max_tokens, así que el margen para el JSON de salida es menor.
+    batchSize: 5,
   };
   for (const arg of argv) {
     if (arg === '--force') args.force = true;
@@ -150,7 +152,7 @@ interface ChatMessage {
 }
 
 interface ChatResponse {
-  choices: Array<{ message: { content: string } }>;
+  choices: Array<{ message: { content: string }; finish_reason?: string }>;
 }
 
 const SYSTEM_PROMPT = `Sos un traductor profesional de manuales de Warhammer: The Old World del inglés al español rioplatense argentino. Tu trabajo es producir una traducción precisa, natural y técnica, que un jugador pueda usar en la mesa.
@@ -198,7 +200,21 @@ async function callLlm(messages: ChatMessage[]): Promise<string> {
         throw new Error(`HTTP ${res.status}: ${txt.slice(0, 200)}`);
       }
       const data = (await res.json()) as ChatResponse;
-      return data.choices[0]?.message?.content ?? '';
+      const choice = data.choices[0];
+
+      // `length` significa que el presupuesto se agotó y el JSON quedó
+      // truncado: `JSON.parse` va a fallar igual, pero con un error que no
+      // dice por qué. Y los modelos de razonamiento de DeepSeek descuentan los
+      // tokens de pensar de este mismo `max_tokens`, así que el margen es
+      // menor de lo que parece. Se tira acá, con el motivo, y el lote
+      // reintenta.
+      if (choice?.finish_reason === 'length') {
+        throw new Error(
+          'La respuesta se truncó por max_tokens (el razonamiento consume del ' +
+            'mismo presupuesto). Bajá --batch.',
+        );
+      }
+      return choice?.message?.content ?? '';
     } catch (err) {
       lastErr = err as Error;
       attempt++;

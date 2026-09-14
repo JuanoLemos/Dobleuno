@@ -29,6 +29,17 @@ export interface CallLLMInput {
   mockKind?: 'rag' | 'cronica';
 }
 
+/**
+ * Presupuesto por defecto.
+ *
+ * Eran 600, dimensionados para un modelo sin razonamiento. Los modelos actuales
+ * de DeepSeek descuentan los tokens de razonamiento de este mismo número, y en
+ * una consulta de reglas eso son ~850-1200 antes de escribir una sola palabra
+ * de la respuesta. Medido contra la API: con 600 el contenido vuelve vacío;
+ * con 1500 la respuesta sale completa.
+ */
+const MAX_TOKENS_DEFAULT = 2000;
+
 let cachedClient: OpenAI | null = null;
 
 function getClient(): OpenAI | null {
@@ -85,9 +96,33 @@ export async function callLLM(input: CallLLMInput): Promise<string> {
         { role: 'user', content: input.user },
       ],
       temperature: input.temperature ?? 0.3,
-      max_tokens: input.maxTokens ?? 600,
+      max_tokens: input.maxTokens ?? MAX_TOKENS_DEFAULT,
     });
-    return res.choices[0]?.message?.content ?? '';
+
+    const choice = res.choices[0];
+    const texto = choice?.message?.content ?? '';
+
+    // Una respuesta vacía no se devuelve como si fuera una respuesta.
+    //
+    // Los modelos de razonamiento de DeepSeek gastan del MISMO presupuesto de
+    // `max_tokens` para pensar: en una pregunta simple de reglas, el
+    // razonamiento se lleva entre 850 y 1200 tokens. Con los 600 que pedía
+    // este helper, `finish_reason` volvía "length", `reasoning_tokens` daba
+    // 600 de 600 y `content` llegaba VACÍO — con HTTP 200.
+    //
+    // Devolver ese '' hacía que el oráculo contestara con una respuesta en
+    // blanco y cero citas, sin que nada fallara. Es el mismo modo de falla que
+    // la Ola 12 vino persiguiendo, así que acá se corta.
+    if (!texto.trim()) {
+      const razon = choice?.finish_reason ?? 'desconocido';
+      throw new Error(
+        `El modelo devolvió una respuesta vacía (finish_reason: ${razon}). ` +
+          (razon === 'length'
+            ? 'El presupuesto de tokens se consumió razonando: subí maxTokens.'
+            : 'Reintentá; si persiste, revisá el prompt.'),
+      );
+    }
+    return texto;
   } catch (err) {
     log.error('LLM call failed', { error: (err as Error).message });
     throw new Error(`LLM call failed: ${(err as Error).message}`);
