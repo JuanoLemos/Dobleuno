@@ -85,8 +85,8 @@ export function createApp(): Express {
   // En dev local, el dist vive en `apps/web/dist` (relativo a este archivo).
   // En Docker, se monta como volumen en /app/web-dist (configurable por env).
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const WEB_DIST = process.env.WEB_DIST_DIR
-    ? path.resolve(process.env.WEB_DIST_DIR)
+  const WEB_DIST = env.WEB_DIST_DIR
+    ? path.resolve(env.WEB_DIST_DIR)
     : path.resolve(__dirname, '../../web/dist');
 
   if (existsSync(WEB_DIST)) {

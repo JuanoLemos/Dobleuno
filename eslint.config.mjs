@@ -25,7 +25,11 @@ export default [
       '**/drizzle.config.ts',
       '**/eslint.config.mjs',
       '**/prettier.config.mjs',
+      // Scripts de build y de operación, en JS plano. El resto de scripts/ entra
+      // al lint en la Fase 4 de la Ola 12, con su propio tsconfig.
       'scripts/bump-version.js',
+      'scripts/*.mjs',
+      'apps/server/scripts/**',
       'scripts/mirror-tow.ts',
       'scripts/parse-tow.ts',
       'scripts/translate-tow.ts',

@@ -24,10 +24,17 @@ import { log } from './logger.js';
 import { env } from '../env.js';
 import { ingestProcessedFiles, type IngestStats } from './kb-ingest.js';
 
-// ROOT del monorepo: apps/server/src/lib/kb-sync.ts → apps/server/src/lib → apps/server/src → apps/server → repo
-// (import.meta.dirname disponible en Node 22+; fallback por compat).
+// ROOT del monorepo, contando desde este archivo:
+//   src/lib → src → apps/server → apps → repo   (cuatro niveles)
+//
+// Tenía tres, así que resolvía a `apps/` y el default del data dir quedaba en
+// `apps/data`, mientras docker-compose monta el volumen en `/app/data`. En el
+// contenedor eso significa que el cache del mirror se escribe fuera del
+// volumen y se pierde en cada restart. Comparar con uploads.ts, que ya usa
+// cuatro. `src/` y `dist/` están a la misma profundidad, así que el mismo
+// cálculo vale bajo tsx y bajo node.
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '../../..');
+const REPO_ROOT = resolve(__dirname, '../../../..');
 const DEFAULT_DATA_DIR = resolve(REPO_ROOT, 'data');
 
 // Los scripts mirror-tow / parse-tow viven en /scripts (fuera del tsconfig.rootDir del server).

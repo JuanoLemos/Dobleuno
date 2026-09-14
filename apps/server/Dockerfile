@@ -1,40 +1,55 @@
-# Dockerfile para Dobleuno server.
+# Dockerfile de Dobleuno — un solo contenedor sirve la API y el cliente.
 #
 # Build:
 #   docker build -f apps/server/Dockerfile -t dobleuno-server .
-# Run (con docker-compose):
+# Run:
 #   docker compose up -d
 #
-# Multi-stage build para minimizar tamaño de imagen.
+# ── Qué cambió en la Ola 12 ───────────────────────────────────────────────
+#
+# Este archivo nunca se había construido con éxito: el stage `build` corría
+# `npm run build -w @dobleuno/shared`, y ese script no existe — `packages/shared`
+# es type-only, apunta su `main` al `.ts` y sólo declara `typecheck`. El build
+# fallaba siempre, y nadie se enteró porque el CI no tocaba Docker.
+#
+# Además la imagen era API-only: el cliente no se construía acá ni entraba de
+# ninguna otra forma, así que el "deploy unificado" del ROADMAP no tenía
+# soporte. Ahora el web se buildea en el stage `build` y se sirve desde el
+# mismo Express, mismo origen, sin CORS.
 
 # ─── Stage 1: deps ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
 WORKDIR /app
 
-# Copiamos package.json de workspaces + lockfile
+# Los package.json de TODOS los workspaces del lockfile. Sin el de web,
+# `npm ci` queda desincronizado: el lockfile lo declara como workspace.
 COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/
+COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 
-# Install con --legacy-peer-deps por conflictos con better-auth peerOptional
+# --legacy-peer-deps por conflictos con better-auth peerOptional
 RUN npm ci --legacy-peer-deps
 
 # ─── Stage 2: build ────────────────────────────────────────────────────────
 FROM deps AS build
 WORKDIR /app
 
-# Copiamos el código fuente
 COPY tsconfig.base.json ./
 COPY packages/shared/ ./packages/shared/
 COPY apps/server/ ./apps/server/
+COPY apps/web/ ./apps/web/
 
-# Build shared primero (lo necesita server para compilar)
-RUN npm run build -w @dobleuno/shared
+# El cliente, con la API en el mismo origen: vacío = URLs relativas.
+# Si esto quedara con un valor, la imagen serviría sólo para ese dominio.
+ENV VITE_API_URL=""
+RUN npm run build -w @dobleuno/web
 
-# Build server
+# El server. Su `build` es `tsc` + copiar los .sql al dist: `tsc` sólo emite
+# JavaScript, y sin los .sql el contenedor no puede migrar la base.
 RUN npm run build -w @dobleuno/server
 
-# Limpieza: solo prod deps para runtime
+# Sólo prod deps para el runtime.
 RUN npm prune --omit=dev --legacy-peer-deps
 
 # ─── Stage 3: runtime ──────────────────────────────────────────────────────
@@ -43,16 +58,18 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV WEB_DIST_DIR=/app/web-dist
 
-# Copiamos solo lo necesario desde build stage
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/apps/server/dist ./apps/server/dist
 COPY --from=build /app/apps/server/package.json ./apps/server/
 COPY --from=build /app/apps/server/.env.example ./apps/server/.env.example
+COPY --from=build /app/apps/web/dist ./web-dist
 COPY --from=build /app/package.json ./package.json
 
-# Crear usuario no-root por seguridad
+# `packages/shared` no se copia: es type-only. Los 14 imports del server son
+# `import type` y TypeScript los borra al compilar, así que no existe en runtime.
+
 RUN addgroup -g 1001 -S nodejs && adduser -S dobleuno -u 1001 -G nodejs
 
 # Ola 10 — Los directorios de datos tienen que existir Y ser del usuario que
@@ -65,8 +82,10 @@ USER dobleuno
 
 EXPOSE 3000
 
-# Healthcheck (usa /api/health del server)
+# Apunta a /ready, no a /health: el primero devuelve 503 sin base, el segundo
+# devuelve 200 siempre. Con /health, un contenedor sin Postgres quedaba
+# `healthy` para siempre.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health/ready || exit 1
 
 CMD ["node", "apps/server/dist/index.js"]

@@ -52,6 +52,16 @@ const EnvSchema = z.object({
    * fotos son dato de usuario irremplazable.
    */
   UPLOADS_DIR: z.string().optional(),
+
+  /**
+   * Ola 12 — Dónde está el build del cliente que sirve este mismo server.
+   * Default: `apps/web/dist` relativo al bundle. En Docker, `/app/web-dist`.
+   *
+   * Estaba leída con `process.env` crudo desde app.ts, esquivando este schema
+   * entero — que es justamente el mecanismo con el que el proyecto falla
+   * rápido cuando falta algo.
+   */
+  WEB_DIST_DIR: z.string().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

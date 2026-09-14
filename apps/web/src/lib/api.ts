@@ -2,7 +2,7 @@
  * HTTP client minimalista con credentials (cookies) para sessions.
  * Lanza ApiError con status + body parseado.
  */
-import { env } from './env.js';
+import { apiBase } from './env.js';
 
 export class ApiError extends Error {
   constructor(
@@ -26,8 +26,9 @@ export async function api<T = unknown>(
 ): Promise<T> {
   const { body, query, headers, ...rest } = options;
 
-  // Build URL with query
-  const url = new URL(`${env.VITE_API_URL}${path}`);
+  // Build URL with query. La base sale de apiBase(): con VITE_API_URL vacío
+  // es el origen de la página, y `new URL(path)` sin base tiraría TypeError.
+  const url = new URL(path, apiBase());
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== undefined) url.searchParams.set(k, String(v));
