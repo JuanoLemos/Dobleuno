@@ -154,7 +154,8 @@ jobs:
           consulta() { docker compose exec -T postgres psql -U dobleuno -d dobleuno "$@"; }
           # 1/count(*) revienta con division by zero si la extension no esta.
           consulta -v ON_ERROR_STOP=1 -c "select 1/count(*) from pg_extension where extname='vector';"
-          migs=$(consulta -tAc "select count(*) from __drizzle_migrations;" | tr -d '[:space:]')
+          # Drizzle guarda su journal en su propio schema, no en public.
+          migs=$(consulta -tAc "select count(*) from drizzle.__drizzle_migrations;" | tr -d '[:space:]')
           echo "migraciones aplicadas: $migs"
           test "$migs" -ge 8
 
