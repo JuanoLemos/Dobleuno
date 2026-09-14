@@ -1,22 +1,34 @@
 /**
- * Dobleuno · Parser HTML→JSON para tow.whfb.app
+ * Dobleuno · Parser del mirror de tow.whfb.app
  *
- * Lee data/raw/ y produce data/processed/ con JSON estructurado.
- * Valida contra Zod. Falla loud si una página no matchea el schema esperado.
+ * Lee los JSON de data/raw/ (que produce mirror-tow.ts) y escribe el corpus
+ * normalizado en data/processed/. Valida con Zod.
+ *
+ * ── Qué cambió respecto de la versión anterior ───────────────────────────
+ *
+ * La anterior parseaba HTML con selectores CSS (`.rarity`, `.unit-category`)
+ * que nunca existieron: el mirror bajaba el shell de carga de Next y el parser
+ * terminaba extrayendo el <h1> del header del sitio. Ahora la entrada es el
+ * JSON de Contentful que el propio sitio incrusta en la página, así que no hay
+ * selectores ni heurística: se leen campos.
+ *
+ * ── Taxonomía: se guarda la del sitio, no una inventada ──────────────────
+ *
+ * El esquema viejo asumía 8 categorías de regla, 4 rarezas de item y 2
+ * facciones. La realidad son 32 `ruleType`, 70 `magicItemType` y 19 ejércitos.
+ * Forzar ese mapeo fue justamente lo que hizo que las 39 reglas cayeran todas
+ * en `equipment`. Acá se guardan los slugs reales; si una vista necesita
+ * agrupar más grueso, que lo haga con un mapeo explícito y a la vista.
  *
  * Uso:
- *   tsx scripts/parse-tow.ts                              # todo
- *   tsx scripts/parse-tow.ts --type=army                  # solo unidades
- *   tsx scripts/parse-tow.ts --type=rule                  # solo reglas
- *   tsx scripts/parse-tow.ts --type=item                  # solo items
- *   tsx scripts/parse-tow.ts --faction=empire             # solo Empire
+ *   tsx scripts/parse-tow.ts              # todo lo que haya en data/raw/
+ *   tsx scripts/parse-tow.ts --kind=rule  # solo un tipo
+ *   tsx scripts/parse-tow.ts --verbose    # muestra las entradas que fallan
  */
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs';
-import { dirname, join, resolve, basename, extname } from 'node:path';
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { load as cheerioLoad } from 'cheerio';
 import { z } from 'zod';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -24,465 +36,336 @@ const ROOT = resolve(__dirname, '..');
 const DATA_RAW = join(ROOT, 'data', 'raw');
 const DATA_PROCESSED = join(ROOT, 'data', 'processed');
 
-// ─── Schemas Zod ──────────────────────────────────────────────────────────
+// ─── Schemas de salida ────────────────────────────────────────────────────
 
-const WeaponProfileSchema = z.object({
+const FuenteSchema = z.object({
+  /** Página del reglamento impreso. */
+  page: z.string(),
+  url: z.string(),
+  lastVerified: z.string(),
+});
+
+const ParsedRuleSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
   name: z.string(),
-  range: z.string().default('—'),
-  strength: z.number().int().nonnegative(),
-  armorPenetration: z.number().int().default(0),
-  rules: z.array(z.string()).default([]),
+  /** Sección del reglamento: 'special-rules', 'the-combat-phase', … */
+  ruleType: z.string(),
+  /** Ejércitos o publicaciones a las que aplica. */
+  associations: z.array(z.string()).default([]),
+  /** Texto plano de la regla. */
+  text: z.string(),
+  /** Slugs de reglas relacionadas, para navegación cruzada. */
+  related: z.array(z.string()).default([]),
+  source: FuenteSchema,
 });
 
-const UnitStatsSchema = z.object({
-  M: z.number().int(),
-  WS: z.number().int(),
-  BS: z.number().int(),
-  S: z.number().int(),
-  T: z.number().int(),
-  W: z.number().int(),
-  I: z.number().int(),
-  A: z.number().int(),
-  Ld: z.number().int(),
-  Sv: z.string(),
-});
-
-const UnitOptionSchema = z.object({
+const ParsedItemSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
   name: z.string(),
-  points: z.number().int().nonnegative(),
-  description: z.string().optional(),
+  /** Clasificación del sitio: 'Ability', 'Weapon', … */
+  type: z.string().default(''),
+  /** Costo en puntos. 0 = sin costo declarado. */
+  cost: z.number().int().nonnegative().default(0),
+  /** Familias de item: 'arcane-items', 'armour-runes', … */
+  itemTypes: z.array(z.string()).default([]),
+  associations: z.array(z.string()).default([]),
+  text: z.string(),
+  source: FuenteSchema,
 });
+
+/**
+ * Statline. Los valores van como string a propósito: el sitio usa `-`, `(+1)`,
+ * `2D6` y otras notaciones que no son números.
+ */
+const PerfilSchema = z.record(z.string(), z.string());
 
 const ParsedUnitSchema = z.object({
   id: z.string(),
-  faction: z.enum(['empire', 'bretonnia']),
-  category: z.enum(['lord', 'hero', 'core', 'special', 'rare']),
+  slug: z.string(),
   name: z.string(),
-  stats: UnitStatsSchema,
-  weapons: z.array(WeaponProfileSchema).default([]),
-  specialRules: z.array(z.string()).default([]),
-  pointsPerModel: z.number().int().nonnegative().optional(),
-  pointsFixed: z.number().int().nonnegative().optional(),
-  minSize: z.number().int().positive().default(1),
-  maxSize: z.number().int().positive().optional(),
-  commandGroup: z
-    .object({
-      champion: z.number().int().nonnegative().optional(),
-      standard: z.number().int().nonnegative().optional(),
-      musician: z.number().int().nonnegative().optional(),
-    })
-    .default({}),
-  options: z.array(UnitOptionSchema).default([]),
-  source: z.object({
-    page: z.string(),
-    lastVerified: z.string(),
-  }),
+  nameSingular: z.string().default(''),
+  /** Ejército: 'empire-of-man', 'kingdom-of-bretonnia', … */
+  army: z.string().default(''),
+  associations: z.array(z.string()).default([]),
+  /** 'Character', 'Core', 'Special', 'Rare', … */
+  unitCategory: z.string().default(''),
+  troopTypes: z.array(z.string()).default([]),
+  profile: z.array(PerfilSchema).default([]),
+  baseSize: z.string().default(''),
+  unitSize: z.string().default(''),
+  cost: z.number().int().nonnegative().nullable().default(null),
+  costOverride: z.string().default(''),
+  armourValue: z.string().default(''),
+  equipment: z.string().default(''),
+  specialRules: z.string().default(''),
+  options: z.string().default(''),
+  source: FuenteSchema,
 });
 
-const ParsedSpecialRuleSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  category: z.enum([
-    'combat',
-    'shooting',
-    'magic',
-    'movement',
-    'leadership',
-    'equipment',
-    'armour',
-    'psychology',
-  ]),
-  source: z.object({
-    page: z.string(),
-    lastVerified: z.string(),
-  }),
-});
+export type ParsedRule = z.infer<typeof ParsedRuleSchema>;
+export type ParsedItem = z.infer<typeof ParsedItemSchema>;
+export type ParsedUnit = z.infer<typeof ParsedUnitSchema>;
 
-const ParsedMagicItemSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  rarity: z.enum(['common', 'uncommon', 'rare', 'very-rare']),
-  points: z.number().int().nonnegative(),
-  description: z.string(),
-  factionRestriction: z.array(z.string()).default([]),
-  characterRestriction: z.array(z.enum(['lord', 'hero'])).default([]),
-  source: z.object({
-    page: z.string(),
-    lastVerified: z.string(),
-  }),
-});
+// ─── Rich text de Contentful → texto plano ────────────────────────────────
 
-type ParsedUnit = z.infer<typeof ParsedUnitSchema>;
-type ParsedSpecialRule = z.infer<typeof ParsedSpecialRuleSchema>;
-type ParsedMagicItem = z.infer<typeof ParsedMagicItemSchema>;
+interface RichNode {
+  nodeType?: string;
+  value?: string;
+  content?: RichNode[];
+}
 
-// ─── CLI args ─────────────────────────────────────────────────────────────
+const NODOS_BLOQUE = new Set([
+  'document',
+  'paragraph',
+  'unordered-list',
+  'ordered-list',
+  'list-item',
+  'table',
+  'table-row',
+  'blockquote',
+]);
+
+/**
+ * Aplana un documento rich-text de Contentful.
+ *
+ * Para reglas e items casi siempre existe `bodyIndex`, que ya viene en texto
+ * plano; esto hace falta para los campos de unidad (equipment, specialRules,
+ * options), que solo vienen como documento, y como fallback del 1% de reglas
+ * sin `bodyIndex`.
+ */
+export function richTextToPlain(node: unknown): string {
+  if (!node || typeof node !== 'object') return '';
+  const n = node as RichNode;
+
+  if (typeof n.value === 'string') return n.value;
+  if (!Array.isArray(n.content)) return '';
+
+  const partes = n.content.map(richTextToPlain);
+  const esBloque =
+    (n.nodeType && NODOS_BLOQUE.has(n.nodeType)) || n.nodeType?.startsWith('heading-');
+
+  // Los bloques se separan con salto; lo inline se concatena (ya trae espacios).
+  return esBloque ? partes.filter(Boolean).join('\n').trim() : partes.join('');
+}
+
+// ─── Helpers de lectura ───────────────────────────────────────────────────
+
+interface RawFile {
+  kind: 'rule' | 'item' | 'unit';
+  slug: string;
+  url: string;
+  fetchedAt: string;
+  entry?: { fields?: Record<string, unknown> };
+}
+
+interface LinkedEntry {
+  fields?: { slug?: string; name?: string };
+}
+
+/** Slugs de una lista de entradas linkeadas (ruleType, association, …). */
+function slugs(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((e) => (e as LinkedEntry)?.fields?.slug)
+    .filter((s): s is string => typeof s === 'string');
+}
+
+/** Nombres de una lista de entradas linkeadas. */
+function nombres(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((e) => (e as LinkedEntry)?.fields?.name)
+    .filter((s): s is string => typeof s === 'string');
+}
+
+function texto(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+function numero(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/**
+ * Página del reglamento. Algunas entradas traen `pageReferenceOverride` con
+ * cosas como "90 & 127", que gana sobre el número.
+ */
+function pagina(fields: Record<string, unknown>): string {
+  const override = texto(fields.pageReferenceOverride);
+  if (override) return override;
+  const n = numero(fields.pageReference);
+  return n === null ? '' : String(n);
+}
+
+/** `forces-of-fantasy` y `ravening-hordes` son publicaciones, no ejércitos. */
+const NO_ES_EJERCITO = new Set(['forces-of-fantasy', 'ravening-hordes']);
+
+// ─── Parsers por tipo ─────────────────────────────────────────────────────
+
+function parseRule(raw: RawFile): ParsedRule {
+  const f = raw.entry?.fields ?? {};
+  return ParsedRuleSchema.parse({
+    id: `rule-${raw.slug}`,
+    slug: raw.slug,
+    name: texto(f.name),
+    ruleType: slugs(f.ruleType)[0] ?? '',
+    associations: slugs(f.association),
+    text: texto(f.bodyIndex) || richTextToPlain(f.body) || richTextToPlain(f.description),
+    related: slugs(f.relatedLinks),
+    source: { page: pagina(f), url: raw.url, lastVerified: raw.fetchedAt.slice(0, 10) },
+  });
+}
+
+function parseItem(raw: RawFile): ParsedItem {
+  const f = raw.entry?.fields ?? {};
+  return ParsedItemSchema.parse({
+    id: `item-${raw.slug}`,
+    slug: raw.slug,
+    name: texto(f.name),
+    type: texto(f.type),
+    cost: numero(f.cost) ?? 0,
+    itemTypes: slugs(f.magicItemType),
+    associations: slugs(f.association),
+    text: texto(f.bodyIndex) || richTextToPlain(f.body) || richTextToPlain(f.description),
+    source: { page: pagina(f), url: raw.url, lastVerified: raw.fetchedAt.slice(0, 10) },
+  });
+}
+
+function parseUnit(raw: RawFile): ParsedUnit {
+  const f = raw.entry?.fields ?? {};
+  const asociaciones = slugs(f.association);
+
+  const perfil = Array.isArray(f.unitProfile)
+    ? (f.unitProfile as unknown[])
+        .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object')
+        .map((p) =>
+          Object.fromEntries(
+            Object.entries(p).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]),
+          ),
+        )
+    : [];
+
+  return ParsedUnitSchema.parse({
+    id: `unit-${raw.slug}`,
+    slug: raw.slug,
+    name: texto(f.name),
+    nameSingular: texto(f.nameSingular),
+    army: asociaciones.find((a) => !NO_ES_EJERCITO.has(a)) ?? '',
+    associations: asociaciones,
+    unitCategory: nombres(f.unitCategory)[0] ?? '',
+    troopTypes: nombres(f.troopType),
+    profile: perfil,
+    baseSize: texto(f.baseSize),
+    unitSize: texto(f.unitSize),
+    cost: numero(f.cost),
+    costOverride: texto(f.costOverride),
+    armourValue: texto(f.armourValue),
+    equipment: richTextToPlain(f.equipment),
+    specialRules: richTextToPlain(f.specialRules),
+    options: richTextToPlain(f.options),
+    source: { page: pagina(f), url: raw.url, lastVerified: raw.fetchedAt.slice(0, 10) },
+  });
+}
+
+// ─── Orquestación ─────────────────────────────────────────────────────────
+
+export interface ParseStats {
+  rules: number;
+  items: number;
+  units: number;
+  failed: number;
+}
 
 interface CliArgs {
-  faction?: 'empire' | 'bretonnia' | 'all';
-  type?: 'army' | 'rule' | 'item' | 'all';
-  strict: boolean;
+  kind: 'rule' | 'item' | 'unit' | 'all';
+  verbose: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { strict: true };
-  for (const arg of argv) {
-    if (arg === '--no-strict') args.strict = false;
-    else if (arg.startsWith('--faction=')) {
-      const v = arg.slice('--faction='.length);
-      args.faction = v === 'all' ? 'all' : (v as 'empire' | 'bretonnia');
-    } else if (arg.startsWith('--type=')) {
-      const v = arg.slice('--type='.length);
-      args.type = v === 'all' ? 'all' : (v as 'army' | 'rule' | 'item');
+  const args: CliArgs = { kind: 'all', verbose: false };
+  for (const a of argv) {
+    if (a === '--verbose' || a === '-v') args.verbose = true;
+    else if (a.startsWith('--kind=')) {
+      const v = a.slice('--kind='.length);
+      if (v === 'rule' || v === 'item' || v === 'unit' || v === 'all') args.kind = v;
     }
   }
   return args;
 }
 
-// ─── HTML → Parsed (con selectores) ───────────────────────────────────────
-
-const SELECTORS = {
-  unitName: 'h1.unit-name, h1[class*="unit"], h1',
-  unitFaction: '.unit-faction, .faction-tag',
-  unitCategory: '.unit-category, .category',
-  unitStatsTable: 'table.unit-stats, table[class*="stats"]',
-  unitWeapons: '.weapons-list li, .weapons li',
-  unitSpecialRules: '.special-rules-list li, .special-rules li',
-  unitOptions: '.options-list li, .options li',
-  unitPoints: '.points-per-model, .points',
-  ruleName: 'h1, h1.rule-name, h1[class*="rule"]',
-  ruleDescription: '.rule-description, .description, .content p',
-  itemName: 'h1, h1.item-name, h1[class*="item"]',
-  itemRarity: '.rarity',
-  itemPoints: '.points',
-  itemDescription: '.item-description, .description',
-};
-
-interface ParseStats {
-  files: number;
-  parsed: number;
-  failed: number;
-  errors: Array<{ file: string; error: string }>;
+function leerCrudos(kind: 'rule' | 'item' | 'unit', dir: string): RawFile[] {
+  const sub = join(dir, kind);
+  if (!existsSync(sub)) return [];
+  return readdirSync(sub)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => JSON.parse(readFileSync(join(sub, f), 'utf-8')) as RawFile);
 }
 
-function parseUnit(html: string, faction: 'empire' | 'bretonnia', slug: string): ParsedUnit {
-  const $ = cheerioLoad(html);
-  const name = $(SELECTORS.unitName).first().text().trim();
-  if (!name) throw new Error('No unit name found');
-
-  const categoryText = $(SELECTORS.unitCategory).first().text().trim().toLowerCase();
-  const category = ((): 'lord' | 'hero' | 'core' | 'special' | 'rare' => {
-    if (categoryText.includes('lord')) return 'lord';
-    if (categoryText.includes('hero')) return 'hero';
-    if (categoryText.includes('core')) return 'core';
-    if (categoryText.includes('special')) return 'special';
-    if (categoryText.includes('rare')) return 'rare';
-    return 'core';
-  })();
-
-  // Parse stats table
-  const stats: Record<string, number | string> = {};
-  $(`${SELECTORS.unitStatsTable} th, ${SELECTORS.unitStatsTable} td`).each((_, el) => {
-    const text = $(el).text().trim();
-    if (/^(M|WS|BS|S|T|W|I|A|Ld|Sv)$/i.test(text)) {
-      const key = text;
-      const val = $(el).next().text().trim();
-      const num = Number.parseInt(val, 10);
-      stats[key] = Number.isFinite(num) && val !== '' ? num : val;
-    }
-  });
-
-  // Fallback: parse stat rows directly
-  if (Object.keys(stats).length === 0) {
-    $('.stat-row, tr').each((_, row) => {
-      const cells = $(row).find('td, th');
-      if (cells.length >= 2) {
-        const key = $(cells[0]).text().trim();
-        const val = $(cells[1]).text().trim();
-        if (/^(M|WS|BS|S|T|W|I|A|Ld|Sv)$/i.test(key)) {
-          const num = Number.parseInt(val, 10);
-          stats[key] = Number.isFinite(num) && val !== '' ? num : val;
-        }
-      }
-    });
-  }
-
-  // Weapons
-  const weapons = $(SELECTORS.unitWeapons)
-    .map((_, el) => {
-      const text = $(el).text().trim();
-      const m = text.match(/^(.+?)\s*\|\s*(\d+)\s*\|\s*S(\d+)(?:\s*\|\s*AP-?(\d+))?/);
-      if (!m) return null;
-      return {
-        name: m[1]!.trim(),
-        range: '—',
-        strength: Number.parseInt(m[2]!, 10),
-        armorPenetration: m[4] ? Number.parseInt(m[4], 10) : 0,
-        rules: [],
-      };
-    })
-    .get()
-    .filter((w): w is NonNullable<typeof w> => w !== null);
-
-  // Special rules
-  const specialRules = $(SELECTORS.unitSpecialRules)
-    .map((_, el) => $(el).text().trim())
-    .get()
-    .filter(Boolean);
-
-  // Options
-  const options = $(SELECTORS.unitOptions)
-    .map((_, el) => {
-      const text = $(el).text().trim();
-      const m = text.match(/^(.+?)\s*\+(\d+)\s*pts?/);
-      if (!m) return null;
-      return { name: m[1]!.trim(), points: Number.parseInt(m[2]!, 10) };
-    })
-    .get()
-    .filter((o): o is NonNullable<typeof o> => o !== null);
-
-  // Points
-  const pointsText = $(SELECTORS.unitPoints).first().text().trim();
-  const pointsMatch = pointsText.match(/(\d+)\s*pts?\s*(?:per\s*model)?/i);
-  const pointsPerModel = pointsMatch ? Number.parseInt(pointsMatch[1]!, 10) : undefined;
-
-  const candidate = {
-    id: `${faction}-${slug}`,
-    faction,
-    category,
-    name,
-    stats: {
-      M: Number(stats.M) || 4,
-      WS: Number(stats.WS) || 4,
-      BS: Number(stats.BS) || 3,
-      S: Number(stats.S) || 3,
-      T: Number(stats.T) || 3,
-      W: Number(stats.W) || 1,
-      I: Number(stats.I) || 3,
-      A: Number(stats.A) || 1,
-      Ld: Number(stats.Ld) || 7,
-      Sv: String(stats.Sv ?? '5+'),
-    },
-    weapons,
-    specialRules,
-    pointsPerModel,
-    options,
-    minSize: 1,
-    commandGroup: {},
-    source: {
-      page: `tow.whfb.app/army/${faction}/${slug}.html`,
-      lastVerified: new Date().toISOString().slice(0, 10),
-    },
-  };
-
-  const result = ParsedUnitSchema.safeParse(candidate);
-  if (!result.success) {
-    throw new Error(`Validation failed: ${result.error.message}`);
-  }
-  return result.data;
-}
-
-function parseSpecialRule(html: string, slug: string): ParsedSpecialRule {
-  const $ = cheerioLoad(html);
-  const name = $(SELECTORS.ruleName).first().text().trim();
-  if (!name) throw new Error('No rule name found');
-  const description = $(SELECTORS.ruleDescription)
-    .map((_, el) => $(el).text().trim())
-    .get()
-    .filter(Boolean)
-    .join('\n\n');
-
-  const candidate = {
-    id: `rule-${slug}`,
-    name,
-    description: description || 'No description available.',
-    category: 'equipment' as const, // default; refined by manual mapping
-    source: {
-      page: `tow.whfb.app/rules/${slug}.html`,
-      lastVerified: new Date().toISOString().slice(0, 10),
-    },
-  };
-  const result = ParsedSpecialRuleSchema.safeParse(candidate);
-  if (!result.success) throw new Error(`Validation failed: ${result.error.message}`);
-  return result.data;
-}
-
-function parseMagicItem(html: string, slug: string): ParsedMagicItem {
-  const $ = cheerioLoad(html);
-  const name = $(SELECTORS.itemName).first().text().trim();
-  if (!name) throw new Error('No item name found');
-
-  const rarityText = $(SELECTORS.itemRarity).first().text().trim().toLowerCase();
-  const rarity = ((): 'common' | 'uncommon' | 'rare' | 'very-rare' => {
-    if (rarityText.includes('very rare') || rarityText.includes('very-rare')) return 'very-rare';
-    if (rarityText.includes('rare')) return 'rare';
-    if (rarityText.includes('uncommon')) return 'uncommon';
-    return 'common';
-  })();
-
-  const pointsText = $(SELECTORS.itemPoints).first().text().trim();
-  const pointsMatch = pointsText.match(/(\d+)\s*pts?/i);
-  const points = pointsMatch ? Number.parseInt(pointsMatch[1]!, 10) : 0;
-
-  const description = $(SELECTORS.itemDescription)
-    .map((_, el) => $(el).text().trim())
-    .get()
-    .filter(Boolean)
-    .join('\n\n');
-
-  const candidate = {
-    id: `item-${slug}`,
-    name,
-    rarity,
-    points,
-    description: description || 'No description available.',
-    factionRestriction: [],
-    characterRestriction: [],
-    source: {
-      page: `tow.whfb.app/items/${slug}.html`,
-      lastVerified: new Date().toISOString().slice(0, 10),
-    },
-  };
-  const result = ParsedMagicItemSchema.safeParse(candidate);
-  if (!result.success) throw new Error(`Validation failed: ${result.error.message}`);
-  return result.data;
-}
-
-// ─── Filesystem walk ──────────────────────────────────────────────────────
-
-function walkHtml(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      out.push(...walkHtml(full));
-    } else if (entry.isFile() && extname(entry.name) === '.html') {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-// ─── Main (exportable + CLI wrapper) ───────────────────────────────────────
-
-/**
- * Ola 7.1 — entrypoint reutilizable. Parsea el directorio `rawDir`, escribe
- * el resultado en `outDir`. Devuelve stats. `silent=true` no imprime nada.
- */
 export async function parseAll(
-  args: CliArgs,
-  opts: { rawDir?: string; outDir?: string; silent?: boolean } = {},
+  args: CliArgs = { kind: 'all', verbose: false },
+  opts: { dataDir?: string; outDir?: string; silent?: boolean } = {},
 ): Promise<ParseStats> {
-  const rawDir = opts.rawDir ?? DATA_RAW;
+  const dataDir = opts.dataDir ?? DATA_RAW;
   const outDir = opts.outDir ?? DATA_PROCESSED;
   const silent = opts.silent ?? false;
-  const log = (msg: string): void => {
-    if (!silent) console.log(msg);
-  };
-  const err = (msg: string): void => {
-    if (!silent) console.error(msg);
+  const log = (m: string): void => {
+    if (!silent) console.log(m);
   };
 
+  const stats: ParseStats = { rules: 0, items: 0, units: 0, failed: 0 };
   mkdirSync(outDir, { recursive: true });
 
-  const stats: ParseStats = { files: 0, parsed: 0, failed: 0, errors: [] };
+  const trabajos = [
+    { kind: 'rule' as const, parser: parseRule, salida: 'rules.json', campo: 'rules' as const },
+    {
+      kind: 'item' as const,
+      parser: parseItem,
+      salida: 'magic-items.json',
+      campo: 'items' as const,
+    },
+    { kind: 'unit' as const, parser: parseUnit, salida: 'units.json', campo: 'units' as const },
+  ];
 
-  // Army
-  if (!args.type || args.type === 'army' || args.type === 'all') {
-    const factions = args.faction && args.faction !== 'all' ? [args.faction] : ['empire', 'bretonnia'];
-    for (const faction of factions) {
-      const dir = join(rawDir, 'army', faction);
-      const files = walkHtml(dir);
-      const units: ParsedUnit[] = [];
-      for (const file of files) {
-        stats.files++;
-        try {
-          const html = readFileSync(file, 'utf-8');
-          const slug = basename(file, '.html');
-          const unit = parseUnit(html, faction as 'empire' | 'bretonnia', slug);
-          units.push(unit);
-          stats.parsed++;
-        } catch (e) {
-          stats.failed++;
-          stats.errors.push({ file, error: (e as Error).message });
-        }
-      }
-      const outPath = join(outDir, `units-${faction}.json`);
-      writeFileSync(outPath, JSON.stringify(units, null, 2), 'utf-8');
-      log(`[parse] army/${faction}: ${units.length} units → ${outPath.replace(ROOT, '')}`);
-    }
-  }
+  for (const t of trabajos) {
+    if (args.kind !== 'all' && args.kind !== t.kind) continue;
+    const crudos = leerCrudos(t.kind, dataDir);
+    const salida: Array<{ slug: string }> = [];
 
-  // Special rules
-  if (!args.type || args.type === 'rule' || args.type === 'all') {
-    const dir = join(rawDir, 'rule', 'empire');
-    const files = walkHtml(dir);
-    const rules: ParsedSpecialRule[] = [];
-    for (const file of files) {
-      stats.files++;
+    for (const raw of crudos) {
       try {
-        const html = readFileSync(file, 'utf-8');
-        const slug = basename(file, '.html');
-        rules.push(parseSpecialRule(html, slug));
-        stats.parsed++;
-      } catch (e) {
+        salida.push(t.parser(raw));
+      } catch (err) {
         stats.failed++;
-        stats.errors.push({ file, error: (e as Error).message });
+        if (args.verbose) console.error(`  [fail] ${t.kind}/${raw.slug}: ${(err as Error).message}`);
       }
     }
-    const outPath = join(outDir, 'special-rules.json');
-    writeFileSync(outPath, JSON.stringify(rules, null, 2), 'utf-8');
-    log(`[parse] rules: ${rules.length} → ${outPath.replace(ROOT, '')}`);
+
+    // Orden estable: el diff entre corridas tiene que ser legible.
+    salida.sort((a, b) => a.slug.localeCompare(b.slug));
+    writeFileSync(join(outDir, t.salida), JSON.stringify(salida, null, 2), 'utf-8');
+    stats[t.campo] = salida.length;
+    log(`[parse] ${t.salida}: ${salida.length} entradas`);
   }
 
-  // Magic items
-  if (!args.type || args.type === 'item' || args.type === 'all') {
-    const dir = join(rawDir, 'item', 'empire');
-    const files = walkHtml(dir);
-    const items: ParsedMagicItem[] = [];
-    for (const file of files) {
-      stats.files++;
-      try {
-        const html = readFileSync(file, 'utf-8');
-        const slug = basename(file, '.html');
-        items.push(parseMagicItem(html, slug));
-        stats.parsed++;
-      } catch (e) {
-        stats.failed++;
-        stats.errors.push({ file, error: (e as Error).message });
-      }
-    }
-    const outPath = join(outDir, 'magic-items.json');
-    writeFileSync(outPath, JSON.stringify(items, null, 2), 'utf-8');
-    log(`[parse] items: ${items.length} → ${outPath.replace(ROOT, '')}`);
-  }
-
-  log(`\n[parse] Done. ${stats.parsed}/${stats.files} OK, ${stats.failed} failed.`);
-  if (stats.failed > 0 && args.strict) {
-    for (const e of stats.errors.slice(0, 5)) {
-      err(`  [fail] ${e.file}: ${e.error}`);
-    }
-    if (stats.errors.length > 5) {
-      err(`  ... y ${stats.errors.length - 5} más`);
-    }
-  }
+  if (stats.failed > 0) log(`[parse] ${stats.failed} entradas fallaron el schema`);
   return stats;
 }
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const stats = await parseAll(args);
-  if (stats.failed > 0 && args.strict) {
-    process.exit(1);
-  }
+  console.log(
+    `\n[parse] Listo: ${stats.rules} reglas · ${stats.items} items · ${stats.units} unidades`,
+  );
+  if (stats.failed > 0) process.exit(1);
 }
 
 const isMain = import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/')}`;
 if (isMain) {
-  main().catch((err) => {
-    console.error('Error fatal:', err);
+  main().catch((e) => {
+    console.error('Error fatal:', e);
     process.exit(1);
   });
 }
