@@ -7,6 +7,12 @@ Cada versión lista los cambios técnicos. Donde existe, se anida abajo la **bit
 
 ## [Unreleased]
 
+_Nada sin versionar todavía._
+
+---
+
+## [1.1.0] — 2026-09-14
+
 ### Added
 - Walkthrough de la sesión de v1.0.3 (`doc/arch/walkthrough/`) + su línea en la bitácora. El
   ciclo de `/CBP` pide registro por sesión salvo en el camino `commit`; el trabajo de SISTEMA.md
@@ -40,7 +46,6 @@ Cada versión lista los cambios técnicos. Donde existe, se anida abajo la **bit
 - `Batalla.tsx` se comía el 401 en un `catch` vacío: un anónimo veía "Sin batallas en curso" en
   vez del prompt de login.
 
----
 
 ## [1.0.3] — 2026-09-14
 
