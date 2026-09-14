@@ -24,7 +24,7 @@ Lista de modulos top-level con proposito:
 
 ## Decisiones arquitectonicas
 
-Ver `docs/arch/ADR-*.md` si existen (estilo Diligencia).
+Ver `doc/arch/ADR-*.md` si existen (estilo Diligencia).
 
 ## Deuda conocida
 

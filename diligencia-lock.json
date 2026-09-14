@@ -1,0 +1,102 @@
+{
+  "diligencia_version": "4.3.1",
+  "generated": "2026-09-14",
+  "generator": "/adaptar",
+  "files": {
+    "doc/guias/identidad.md": {
+      "sha256": "f03ddeeac37939a37946b4193b708a5817c6af09a00d3a3670f63fda2b1fded0",
+      "template_sha256": "b386b918749e478c0bf2bd19e3c9f8726c6577be7b7207e95f89797d0217572b",
+      "origen": "override",
+      "synced_at": "2026-09-14",
+      "motivo": "placeholder [Nombre del Sistema] reemplazado por /adaptar Flujo B"
+    },
+    "doc/mecanicas/MANDATO.md": {
+      "sha256": "0c6df5ed2a0e488ed1781c711e86c9ef72ff35bd09da15c429248e1ab1a80da3",
+      "template_sha256": "68a7f290073f50fc4b42908e6c9f6bd6441a2212c71c248a9a8f38ea4c195448",
+      "origen": "override",
+      "synced_at": "2026-09-14",
+      "motivo": "tabla de modelos adaptada a DeepSeek (ver ADR-005) + placeholder reemplazado"
+    },
+    "doc/mecanicas/MECANICA-AUDIO.md": {
+      "sha256": "60a75ba002c900b2d638e2a7aa56fa31458c0ee78f02121881c54b5e5ad68091",
+      "template_sha256": "60a75ba002c900b2d638e2a7aa56fa31458c0ee78f02121881c54b5e5ad68091",
+      "origen": "template",
+      "synced_at": "2026-09-14",
+      "template_version": "1.0.0"
+    },
+    "doc/mecanicas/MECANICA-CALIDAD.md": {
+      "sha256": "5d013096db5dc4241c7088273bfad24eb4e719f5af58d40619ca6d61dace1743",
+      "template_sha256": "5d013096db5dc4241c7088273bfad24eb4e719f5af58d40619ca6d61dace1743",
+      "origen": "template",
+      "synced_at": "2026-09-14",
+      "template_version": "1.3"
+    },
+    "doc/mecanicas/MECANICA-LOCK.md": {
+      "sha256": "2e37ad17d62a29b77d431c4fec9ef41eb237032f17815f3417eb186c2c17c53b",
+      "template_sha256": "2e37ad17d62a29b77d431c4fec9ef41eb237032f17815f3417eb186c2c17c53b",
+      "origen": "template",
+      "synced_at": "2026-09-14",
+      "template_version": "1.2.0"
+    },
+    "doc/arch/ADR_SUMMARY.md": {
+      "sha256": "c2e90e1772899fa8960a02c1135494091c0ed0be71511460b409baf4e5745d14",
+      "template_sha256": "0813a7a7d75a382a73ef97cfcf872d7c79be72bd7fbd850d51623bf7aa25d286",
+      "origen": "override",
+      "synced_at": "2026-09-14",
+      "motivo": "placeholder <NOMBRE_DEL_PROYECTO> reemplazado por /adaptar Flujo B"
+    },
+    "doc/arch/README.md": {
+      "sha256": "09db0d63e0dd8150c8ee11f97549e473fe462a8e930bb8c16f39ca727e5ba33a",
+      "template_sha256": "09db0d63e0dd8150c8ee11f97549e473fe462a8e930bb8c16f39ca727e5ba33a",
+      "origen": "template",
+      "synced_at": "2026-09-14"
+    },
+    "doc/arch/adr-template.md": {
+      "sha256": "c249f6024018e0945dda1ab5967576d166a21f01fff688b9b54d151e56fd7e0c",
+      "template_sha256": "c249f6024018e0945dda1ab5967576d166a21f01fff688b9b54d151e56fd7e0c",
+      "origen": "template",
+      "synced_at": "2026-09-14"
+    },
+    "doc/arch/backups.md": {
+      "sha256": "3c546f040f4fa922632479ea4be4f1d34d06c9d79e423e6105b4a10f3f05bbe1",
+      "template_sha256": "3c546f040f4fa922632479ea4be4f1d34d06c9d79e423e6105b4a10f3f05bbe1",
+      "origen": "template",
+      "synced_at": "2026-09-14"
+    },
+    "doc/arch/walkthrough/_template.md": {
+      "sha256": "201d9396ffafb927e1478857843e2f9d72bc1f6d119b7a91ea16ec4f2f21ee96",
+      "template_sha256": "201d9396ffafb927e1478857843e2f9d72bc1f6d119b7a91ea16ec4f2f21ee96",
+      "origen": "template",
+      "synced_at": "2026-09-14"
+    },
+    "doc/arch/bitacora.md": {
+      "sha256": "de36a40297d49f8133cbb9f956c30a6c60afddb25df92c6e568bcd5932a2f68e",
+      "template_sha256": "daaacfdfc6b07b4b2b8fd08dbc0bb9ce24c51fc90b18e6b459391ef35447ac5f",
+      "origen": "override",
+      "synced_at": "2026-09-14",
+      "motivo": "archivo vivo: comentario ADAPTAR removido + sesiones registradas por /CBP",
+      "template_version": "1.0"
+    },
+    "doc/arch/bugs.md": {
+      "sha256": "304d7bab497921a447ef63c3dee527541ab0b4bd996756264917809ae71f90e8",
+      "template_sha256": "8258eb4f436b26fb182b6717856fa6cf9a3cb8ba7254e8525232eb210588df52",
+      "origen": "override",
+      "synced_at": "2026-09-14",
+      "motivo": "placeholder <NOMBRE_DEL_PROYECTO> reemplazado por /adaptar Flujo B"
+    },
+    "doc/arch/incidentes.md": {
+      "sha256": "6e6531a7c79e1d009a03121fc7623c5d1ddc0b8f1dba248c6c1b7a9eff9df3bc",
+      "template_sha256": "3de221f215ec259b85f0be6ba6dcbd805c3cdfe0af9a9007809b15dd69b1e7e9",
+      "origen": "override",
+      "synced_at": "2026-09-14",
+      "motivo": "placeholder <NOMBRE_DEL_PROYECTO> reemplazado por /adaptar Flujo B"
+    },
+    "doc/mutaciones.md": {
+      "sha256": "75a77d20b291c341a5f455709e2e76deb07e00f1f659e055570b85ded24a49b2",
+      "template_sha256": "93581e7149e630deb463b1ffdd56093425014174504f5ca2569515459729a1e6",
+      "origen": "override",
+      "synced_at": "2026-09-14",
+      "motivo": "placeholder <NOMBRE_DEL_PROYECTO> reemplazado por /adaptar Flujo B"
+    }
+  }
+}

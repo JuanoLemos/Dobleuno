@@ -4,7 +4,7 @@
 
 > **Estado:** Documento histórico. Congelado al cierre de Ola 7.1 (2026-07-09).
 > Las descripciones por ola son snapshots del scope planeado en su momento, no necesariamente lo que se construyó.
-> Ver [`ROADMAP.md`](../ROADMAP.md) y [`CHANGELOG.md`](../CHANGELOG.md) para el estado real.
+> Ver [`ROADMAP.md`](../../ROADMAP.md) y [`CHANGELOG.md`](../../CHANGELOG.md) para el estado real.
 > **Nota:** la decisión implícita de usar `node-cron` para el mirror diario (mencionada en `Decisiones que NO consulto`) quedó **obsoleta en Ola 7.1 (v0.8.0)**: el mirror ahora es triggereable vía `POST /api/admin/kb/sync` (background, job queue in-memory). Ver `apps/server/src/lib/kb-sync.ts`.
 
 | | |
@@ -29,7 +29,7 @@
 | D4 | Dominio | `dobleuno.app` (fallback: `dobleuno.dev`) | .app fuerza HTTPS, memorable |
 | D5 | Metodología docs | **Diligencia** (ROADMAP.md, CHECKLIST.md, CHANGELOG.md, doc/arch/, doc/guias/, doc/mecanicas/) | Ya la tenés, funciona |
 | D6 | Repo | **Repo nuevo `JuanoLemos/dobleuno`** | Fork queda como referencia histórica |
-| D7 | Licencia | **CC BY 4.0** + attribution a `tow.whfb.app` en `docs/SOURCES.md` | Mantenemos del fork, agregamos fuente |
+| D7 | Licencia | **CC BY 4.0** + attribution a `tow.whfb.app` en `doc/SOURCES.md` | Mantenemos del fork, agregamos fuente |
 | D8 | Portal HTML | Local por ahora | Deploy aparte si crece (post-MVP) |
 | D9 | Updates entre olas | Demo al final + vos jugás en mesa y das feedback | — |
 | D10 | React | **18.3** (última 18.x estable) | 19 todavía verde para producción, ecosistema 18 estable |
@@ -83,10 +83,10 @@ Tener el system prompt del AI listo, con tests de regresión, antes de construir
 | `apps/server/src/prompts/__tests__/system.test.ts` | 10 preguntas de prueba (Vitest) |
 | `apps/server/src/prompts/fixtures/questions.json` | Set de preguntas canónicas |
 | `apps/server/src/prompts/fixtures/expected-answers.json` | Respuestas esperadas (citas) |
-| `docs/arch/ADR-005-llm-provider.md` | Aceptado, justifica DeepSeek |
-| `docs/mecanicas/MECANICA-COMPOSICION.md` | Reglas de composición TOW codificadas (referencia para el AI) |
-| `docs/mecanicas/MECANICA-COMBATE.md` | Resolución de combate TOW (referencia) |
-| `docs/mecanicas/MECANICA-MAGIA.md` | Fase de magia TOW (referencia) |
+| `doc/arch/ADR-005-llm-provider.md` | Aceptado, justifica DeepSeek |
+| `doc/mecanicas/MECANICA-COMPOSICION.md` | Reglas de composición TOW codificadas (referencia para el AI) |
+| `doc/mecanicas/MECANICA-COMBATE.md` | Resolución de combate TOW (referencia) |
+| `doc/mecanicas/MECANICA-MAGIA.md` | Fase de magia TOW (referencia) |
 
 ### Decisiones locked
 - **Modelo:** `claude-3-5-sonnet-20241022` (o el más nuevo Sonnet disponible en la fecha de ejecución). Si está Sonnet 4 disponible, ese.
@@ -115,7 +115,7 @@ Tener el system prompt del AI listo, con tests de regresión, antes de construir
 
 ### Demo
 - Script Node que corre las 10 preguntas contra DeepSeek API y muestra respuestas.
-- Output: `docs/qa/prompt-v0.1-results.md` con cada pregunta, respuesta, y verdict (pass/fail).
+- Output: `doc/qa/prompt-v0.1-results.md` con cada pregunta, respuesta, y verdict (pass/fail).
 
 ### Riesgos
 - DeepSeek API no disponible / rate limit → fallback a `deepseek-reasoner` u otro modelo del mismo vendor.
@@ -229,7 +229,7 @@ src/types/index.ts
 workflows/ci.yml               # Node 20, pnpm cache, lint, test, build
 ```
 
-**Docs `Dobleuno/docs/`:**
+**Docs `Dobleuno/doc/`:**
 ```
 ROADMAP.md                     # roadmap vivo
 CHECKLIST.md
@@ -351,7 +351,7 @@ src/components/reglas/EmptyState.tsx
 src/routes/Reglas.tsx          # refactor con UI real
 ```
 
-**Mecánicas `Dobleuno/docs/mecanicas/`:**
+**Mecánicas `Dobleuno/doc/mecanicas/`:**
 ```
 TOW-FACCIONES.md               # estructura de las facciones
 MECANICA-INGEST.md             # proceso de mirror + parse
@@ -433,7 +433,7 @@ src/routes/lists.ts            # CRUD completo
 src/lib/list-validator.ts      # validación server-side (defense in depth)
 ```
 
-**Mecánicas `Dobleuno/docs/mecanicas/`:**
+**Mecánicas `Dobleuno/doc/mecanicas/`:**
 ```
 MECANICA-COMPOSICION.md        # reglas TOW codificadas (referencia, ya en Ola 0.5)
 TOW-COMPOSICION-EMPIRE.md      # reglas específicas de Empire
@@ -564,7 +564,7 @@ src/routes/battles.ts          # CRUD + state sync
 src/lib/battle-state.ts        # validación de transiciones de fase
 ```
 
-**Mecánicas `Dobleuno/docs/mecanicas/`:**
+**Mecánicas `Dobleuno/doc/mecanicas/`:**
 ```
 MECANICA-COMBATE.md            # referencia (ya en Ola 0.5, ampliar)
 MECANICA-MAGIA.md              # referencia (ya en Ola 0.5, ampliar)
@@ -679,7 +679,7 @@ src/lib/oracle-api.ts
 src/hooks/useOracle.ts         # query, loading, error, citations
 ```
 
-**Mecánicas `Dobleuno/docs/mecanicas/`:**
+**Mecánicas `Dobleuno/doc/mecanicas/`:**
 ```
 MECANICA-CITAS.md              # formato de citas, validación
 ```
@@ -781,7 +781,7 @@ scripts/deploy-web.sh          # build + wrangler deploy
 .github/workflows/deploy.yml   # deploy on tag
 ```
 
-**Docs `Dobleuno/docs/`:**
+**Docs `Dobleuno/doc/`:**
 ```
 guias/deploy.md                # paso a paso del deploy
 guias/setup-dev.md             # dev local end-to-end
@@ -829,9 +829,9 @@ ssh hetzner "cd /opt/dobleuno && git pull && docker-compose pull && docker-compo
 
 **Documentación:**
 - README: pitch, screenshots mobile, setup local, deploy, links.
-- `docs/guias/setup-dev.md`: paso a paso con pnpm, docker, etc.
-- `docs/guias/deploy.md`: paso a paso del deploy con Hetzner + Cloudflare.
-- `docs/SOURCES.md`: attribution a `tow.whfb.app` + nota sobre GW.
+- `doc/guias/setup-dev.md`: paso a paso con pnpm, docker, etc.
+- `doc/guias/deploy.md`: paso a paso del deploy con Hetzner + Cloudflare.
+- `doc/SOURCES.md`: attribution a `tow.whfb.app` + nota sobre GW.
 
 ### Acceptance
 - Lighthouse mobile ≥ 90 en las 4 categorías.

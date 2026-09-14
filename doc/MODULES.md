@@ -257,7 +257,7 @@ Dobleuno/
 │   ├── translate-tow.ts      # YA EXISTE
 │   ├── rules-sync.ts         # YA EXISTE
 │   └── shortcuts/            # YA EXISTE
-├── docs/
+├── doc/
 │   ├── MODULES.md            # ESTE DOC
 │   ├── ROADMAP.md            # Actualizar con olas 8-12
 │   ├── plan/PLAN-OLEADAS.md  # Historial técnico

@@ -6,7 +6,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand — definidos en docs/Sources.md
+        // Brand — definidos en doc/Sources.md
         forge: {
           0: '#0a0a0a',
           1: '#141414',

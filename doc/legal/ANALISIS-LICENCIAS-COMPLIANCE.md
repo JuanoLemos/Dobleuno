@@ -26,7 +26,7 @@
 
 ## 1. Licencia del proyecto (mi licencia)
 
-**Declarado:** README línea 191-193 dice `CC BY 4.0 — ver LICENSE.md` + `docs/Sources.md` con atribuciones.
+**Declarado:** README línea 191-193 dice `CC BY 4.0 — ver LICENSE.md` + `doc/Sources.md` con atribuciones.
 
 **Real:** ❌ `LICENSE.md` no existe. `glob **/LICENSE*` desde root → 0 resultados. Tampoco `NOTICE`, `THIRD_PARTY`, `CREDITS`. El `.dockerignore` línea 23 incluso lista `LICENSE.md` — sugiere que estaba planeado y se olvidó.
 

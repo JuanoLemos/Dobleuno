@@ -1,5 +1,8 @@
 # AGENTS.md
 
+> SSOT del proyecto: [`CLAUDE.md`](CLAUDE.md) (Diligencia v4.3.1). Este archivo queda como
+> resumen operativo para agentes que leen `AGENTS.md` por convención.
+
 Dobleuno — companion app de mesa para Warhammer: The Old World. Monorepo PWA con asistente IA, tracker de batalla y KB de reglas offline.
 
 ## Setup commands
@@ -19,11 +22,11 @@ Dobleuno — companion app de mesa para Warhammer: The Old World. Monorepo PWA c
 - `apps/web/` — Cliente PWA (Vite 5.4 + React 18 + TypeScript 5 + Tailwind 3.4)
 - `apps/server/` — API (Express 4 + Drizzle + better-auth)
 - `packages/shared/` — Tipos compartidos cliente ↔ server
-- `docs/arch/` — ADRs y arquitectura
-- `docs/guias/` — Setup, deploy
-- `docs/mecanicas/` — Reglas de TOW y mecánicas del juego
-- `docs/plan/` — PLAN, PLAN-OLEADAS
-- `docs/qa/` — Resultados de tests
+- `doc/arch/` — ADRs y arquitectura
+- `doc/guias/` — Setup, deploy
+- `doc/mecanicas/` — Reglas de TOW y mecánicas del juego
+- `doc/plan/` — PLAN, PLAN-OLEADAS
+- `doc/qa/` — Resultados de tests
 - `data/` — Mirror de tow.whfb.app (gitignored)
 - `scripts/` — Mirror, parse, translate, bump-version
 - `portal/` — Astro project (sitio estático de reglas)
@@ -76,11 +79,11 @@ Dobleuno — companion app de mesa para Warhammer: The Old World. Monorepo PWA c
 
 - Software libre, no-comercial. Licencia CC BY 4.0. Ver `LICENSE.md`.
 - No afiliado a Games Workshop. Reglamento bajo fair use vía mirror de `tow.whfb.app`.
-- Ver `docs/Sources.md` para atribución completa de fuentes.
+- Ver `doc/Sources.md` para atribución completa de fuentes.
 
 ## Related
 
 - `.harness/` — Mavis multi-agent team
 - `README.md` — referencia rápida del proyecto
-- `docs/plan/PLAN-OLEADAS.md` — roadmap por olas
-- `docs/arch/SISTEMA.md` — arquitectura detallada
+- `doc/plan/PLAN-OLEADAS.md` — roadmap por olas
+- `doc/arch/SISTEMA.md` — arquitectura detallada

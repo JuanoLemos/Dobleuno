@@ -23,7 +23,7 @@
 | Package manager | **npm workspaces** (pnpm bloqueado por permisos del sistema) |
 | CI | GitHub Actions |
 
-Ver `docs/arch/SISTEMA.md` para arquitectura detallada.
+Ver `doc/arch/SISTEMA.md` para arquitectura detallada.
 
 ---
 
@@ -38,7 +38,7 @@ Dobleuno/
 │   └── server/       # API (Express + Drizzle + better-auth)
 ├── packages/
 │   └── shared/       # Tipos compartidos cliente ↔ server
-├── docs/             # Documentación (Diligencia)
+├── doc/             # Documentación (Diligencia)
 │   ├── arch/         # ADRs
 │   ├── guias/        # Setup, deploy
 │   ├── mecanicas/    # Reglas de TOW
@@ -160,13 +160,13 @@ npm run dev
 | 6 | Polish + deploy (Hetzner + Cloudflare + Dockerfile) | ✅ | v0.7.0 |
 | 7.1 | KB sync admin (background + persist + cache docker) | ✅ | v0.8.0 |
 
-Ver `docs/plan/PLAN-OLEADAS.md` para detalle por ola.
+Ver `doc/plan/PLAN-OLEADAS.md` para detalle por ola.
 
 ---
 
 ## Brand
 
-Inspirado en pergamino medieval y fragua oscura. Ver `docs/Sources.md`.
+Inspirado en pergamino medieval y fragua oscura. Ver `doc/Sources.md`.
 
 Paleta:
 - **forge** `#0a0a0a` — fondo de la app (dark mode)
@@ -186,7 +186,7 @@ Sigilo "2·1" en heater shield (ver portal v0).
 
 ## Deploy
 
-Ver [`docs/guias/deploy.md`](docs/guias/deploy.md) para guía completa (Hetzner VPS, Caddy/Nginx, Cloudflare Pages, backups, monitoring, volumen `dobleuno-kbdata` para v0.8.0+).
+Ver [`doc/guias/deploy.md`](doc/guias/deploy.md) para guía completa (Hetzner VPS, Caddy/Nginx, Cloudflare Pages, backups, monitoring, volumen `dobleuno-kbdata` para v0.8.0+).
 
 TL;DR:
 
@@ -289,4 +289,4 @@ El portal declara explícitamente que Dobleuno es software libre, gratuito y no-
 ## License
 
 CC BY 4.0 — ver `LICENSE.md`.
-Atribución a `tow.whfb.app` para el contenido de reglas — ver `docs/Sources.md`.
+Atribución a `tow.whfb.app` para el contenido de reglas — ver `doc/Sources.md`.

@@ -2,7 +2,7 @@
 
 > Roadmap vivo. Se actualiza al cerrar cada ola. Última: 2026-09-13 (v1.0.0).
 >
-> **Mapa de módulos visibles:** [`MODULES.md`](./MODULES.md). El "qué ve el usuario" vive ahí. Este doc es el "qué se construye" (técnico).
+> **Mapa de módulos visibles:** [`MODULES.md`](doc/MODULES.md). El "qué ve el usuario" vive ahí. Este doc es el "qué se construye" (técnico).
 
 ## Estado actual
 
@@ -61,10 +61,10 @@ estaba en el árbol sin commitear (Home cream editorial y SPA fallback del serve
 
 ## Referencias
 
-- [`docs/MODULES.md`](./MODULES.md) — mapa de módulos visibles (Codex/Ejércitos/Mesas/Crónicas)
-- `docs/plan/PLAN.md` — plan de alto nivel
-- `docs/plan/PLAN-OLEADAS.md` — brief por ola (olas 0.5–7.1)
-- `docs/arch/` — ADRs (incluye ADR-005 LLM provider)
-- `docs/mecanicas/` — mecánicas TOW
-- `docs/guias/deploy.md` — guía de deploy Hetzner + Cloudflare + volumen kbdata (v0.8.0+)
-- `docs/Sources.md` — atribución tow.whfb.app
+- [`doc/MODULES.md`](doc/MODULES.md) — mapa de módulos visibles (Codex/Ejércitos/Mesas/Crónicas)
+- `doc/plan/PLAN.md` — plan de alto nivel
+- `doc/plan/PLAN-OLEADAS.md` — brief por ola (olas 0.5–7.1)
+- `doc/arch/` — ADRs (incluye ADR-005 LLM provider)
+- `doc/mecanicas/` — mecánicas TOW
+- `doc/guias/deploy.md` — guía de deploy Hetzner + Cloudflare + volumen kbdata (v0.8.0+)
+- `doc/Sources.md` — atribución tow.whfb.app

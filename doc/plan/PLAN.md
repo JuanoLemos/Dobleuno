@@ -3,7 +3,7 @@
 > Documento vivo. Se actualiza al cerrar cada ola.
 
 > **Estado:** Documento histórico. Congelado al cierre de Ola 0 (2026-07-08).
-> Ver [`ROADMAP.md`](../ROADMAP.md) y [`CHANGELOG.md`](../CHANGELOG.md) para el estado actual.
+> Ver [`ROADMAP.md`](../../ROADMAP.md) y [`CHANGELOG.md`](../../CHANGELOG.md) para el estado actual.
 > Decisiones lockeadas en este plan siguen vigentes salvo donde PLAN-OLEADAS indique lo contrario.
 
 | | |
@@ -260,7 +260,7 @@ Dobleuno/
 │   ├── parse-army.ts                 # HTML → JSON
 │   └── embed-rules.ts                # JSON → embeddings
 │
-├── docs/
+├── doc/
 │   ├── ROADMAP.md                    # roadmap vivo
 │   ├── CHECKLIST.md
 │   ├── CHANGELOG.md
@@ -335,7 +335,7 @@ Dobleuno/
 | D4 | Dominio: ¿`dobleuno.app`, `dobleuno.ar`, `dobleuno.dev`? | `dobleuno.app` si está libre, sino `.dev` | Ola 6 |
 | D5 | ¿Conservamos la metodología Diligencia (ROADMAP.md, CHECKLIST.md, etc.)? | **Sí**, ya la tenés y funciona. La adaptamos al nuevo stack | Ola 1 |
 | D6 | ¿El proyecto se queda en GitHub (JuanoLemos/old-world-builder) o repo nuevo? | **Repo nuevo** `JuanoLemos/dobleuno` (fork queda como referencia) | Ola 1 |
-| D7 | ¿Conservamos la licencia CC BY 4.0 del fork? | **Sí**, pero agregamos attribution a tow.whfb.app en `docs/SOURCES.md` | Ola 1 |
+| D7 | ¿Conservamos la licencia CC BY 4.0 del fork? | **Sí**, pero agregamos attribution a tow.whfb.app en `doc/SOURCES.md` | Ola 1 |
 | D8 | ¿Querés que el portal `portal-dobleuno.html` se haga deploy aparte (ej. Cloudflare Pages) o queda local? | **Local por ahora**, deploy aparte si crece | Post-MVP |
 | D9 | ¿Cómo te enterás del progreso entre olas? | Yo te tiro demo al final + vos jugás en mesa y me das feedback | — |
 
@@ -345,19 +345,19 @@ Dobleuno/
 
 | Archivo | Cuándo | Qué tiene |
 |---|---|---|
-| `docs/plan/PLAN.md` | Ola 0 (este doc) | Este archivo, versionado |
-| `docs/arch/ADR-001-monorepo-pnpm.md` | Ola 0 | Por qué monorepo + pnpm |
-| `docs/arch/ADR-002-fuente-tow-whfb.md` | Ola 0 | tow.whfb.app como fuente + attribution |
-| `docs/arch/ADR-003-backend-llm.md` | Ola 0 (revive) | Acepta el ADR existente, actualiza contexto |
-| `docs/arch/ADR-004-hosting-hetzner.md` | Ola 0 | Stack de deploy |
-| `docs/arch/ADR-005-llm-provider.md` | Ola 0.5 | Anthropic vs OpenAI |
+| `doc/plan/PLAN.md` | Ola 0 (este doc) | Este archivo, versionado |
+| `doc/arch/ADR-001-monorepo-pnpm.md` | Ola 0 | Por qué monorepo + pnpm |
+| `doc/arch/ADR-002-fuente-tow-whfb.md` | Ola 0 | tow.whfb.app como fuente + attribution |
+| `doc/arch/ADR-003-backend-llm.md` | Ola 0 (revive) | Acepta el ADR existente, actualiza contexto |
+| `doc/arch/ADR-004-hosting-hetzner.md` | Ola 0 | Stack de deploy |
+| `doc/arch/ADR-005-llm-provider.md` | Ola 0.5 | Anthropic vs OpenAI |
 | `apps/server/src/prompts/system.ts` | Ola 0.5 | System prompt v1 |
 | `package.json` (root) | Ola 1 | pnpm workspace root, scripts |
 | `pnpm-workspace.yaml` | Ola 1 | define apps/ y packages/ |
 | `apps/web/` | Ola 1 | scaffold Vite + React + TS + Tailwind + PWA |
 | `apps/server/` | Ola 1 | scaffold Express + TS + Drizzle |
 | `packages/shared/` | Ola 1 | tipos compartidos |
-| `docs/ROADMAP.md` | Ola 1 | versión renovada para Dobleuno |
+| `ROADMAP.md` | Ola 1 | versión renovada para Dobleuno |
 | `README.md` | Ola 1 | pitch + setup + deploy |
 
 ---
@@ -380,7 +380,7 @@ Dobleuno/
 
 ## 10. Próximo paso (lo que hago cuando me das OK)
 
-1. **Cierro Ola 0** creando `docs/arch/ADR-001`, `ADR-002` (revive), `ADR-003` (revive), `ADR-004`. Marco este PLAN como **Aprobado**.
+1. **Cierro Ola 0** creando `doc/arch/ADR-001`, `ADR-002` (revive), `ADR-003` (revive), `ADR-004`. Marco este PLAN como **Aprobado**.
 2. **Arranco Ola 0.5** (Prompt v1) si me confirmás D3 (LLM provider). Si no, espero.
 3. **Arranco Ola 1** (Foundation) que es la más larga: scaffold monorepo, cliente, server, auth UI, PWA, dark mode. ~5 días. Demo al final con un `pnpm dev` corriendo y vos instalando la PWA en tu celu.
 

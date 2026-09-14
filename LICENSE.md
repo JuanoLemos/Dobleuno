@@ -25,7 +25,7 @@ Bajo los siguientes términos:
 ### Contenido de reglas (terceros)
 
 - **Reglas de Warhammer: The Old World** (reglamento, erratas, FAQs, datos de unidades): propiedad de Games Workshop. Dobleuno parafrasea y codifica estas mecánicas en datos estructurados, **no reproduce texto literal extenso**.
-- **Mirror de [tow.whfb.app](https://tow.whfb.app/)** — sitio comunitario que mantiene un mirror de las publicaciones oficiales de Games Workshop para TOW. Dobleuno usa este mirror como fuente primaria (ver `docs/Sources.md`). El contenido scrapeado se usa en runtime y cache local de Dobleuno, **no se redistribuye** en este repositorio ni se commitea al código fuente.
+- **Mirror de [tow.whfb.app](https://tow.whfb.app/)** — sitio comunitario que mantiene un mirror de las publicaciones oficiales de Games Workshop para TOW. Dobleuno usa este mirror como fuente primaria (ver `doc/Sources.md`). El contenido scrapeado se usa en runtime y cache local de Dobleuno, **no se redistribuye** en este repositorio ni se commitea al código fuente.
 
 ### Stack open source
 

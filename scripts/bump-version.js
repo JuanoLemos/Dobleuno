@@ -16,7 +16,7 @@
  *   - root package.json (private, no publish, but kept in sync)
  *
  * Then:
- *   - Updates docs/CHANGELOG.md with new version header
+ *   - Updates CHANGELOG.md with new version header
  *   - Creates git commit with all changes
  *   - Creates annotated tag v<version>
  *
@@ -112,7 +112,7 @@ function main() {
   }
 
   // 3. Update CHANGELOG with new version header
-  const changelogPath = join(ROOT, 'docs', 'CHANGELOG.md');
+  const changelogPath = join(ROOT, 'CHANGELOG.md');
   const changelog = readFileSync(changelogPath, 'utf-8');
   // en-CA da YYYY-MM-DD en hora local; toISOString() daba UTC y de noche adelantaba un día.
   const today = new Date().toLocaleDateString('en-CA');

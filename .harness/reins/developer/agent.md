@@ -10,7 +10,7 @@ Sos el rein de desarrollo de este proyecto. Extendes al agente global `coder` co
 ## Antes de tocar
 
 1. Leer `AGENTS.md` raiz del proyecto
-2. Ver `docs/plan/` si hay plan activo
+2. Ver `doc/plan/` si hay plan activo
 3. Confirmar con el orquestador si la tarea es destructiva
 
 ## Convenciones por defecto

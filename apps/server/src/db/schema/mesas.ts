@@ -6,7 +6,7 @@
  *   sesion    → una "fecha de juego" en una mesa específica.
  *   reserva   → un jugador anotado para una sesión (constraint único sesion+user).
  *
- * Decisiones locked (ver docs/arch/ADR-009-calendar-data-model.md):
+ * Decisiones locked (ver doc/arch/ADR-009-calendar-data-model.md):
  *   - Capacidad por mesa (no por sesión).
  *   - Reserva con listId opcional (integra con armybuilder si el user tiene lista).
  *   - GET público de mesas/sesiones/reservas (anima a registrarse).

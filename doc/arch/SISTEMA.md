@@ -97,7 +97,7 @@ Dobleuno es un sistema cliente-servidor para asistir a un jugador de Warhammer: 
 
 1. **Cliente offline-first** para Listas, Batalla, Reglas. La IA requiere red.
 2. **Server stateless** salvo Postgres. Sesiones JWT, sin estado en memoria.
-3. **Tiered response** para el oráculo (FAQs → KB → LLM) — ver `docs/qa/prompt-v0.1-results.md`.
+3. **Tiered response** para el oráculo (FAQs → KB → LLM) — ver `doc/qa/prompt-v0.1-results.md`.
 4. **Brand consistency**: paleta forge/blood/bronze en la app, parchment en el portal.
 5. **Mobile-first**: 360px de ancho mínimo, touch targets ≥ 44px, bottom nav.
 
