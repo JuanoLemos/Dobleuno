@@ -115,7 +115,7 @@ export function validarArchivo(
         const perfil = e.profile;
         const tienePerfil = Array.isArray(perfil) && perfil.length > 0;
         const tieneBloques = ['equipment', 'specialRules', 'options'].some(
-          (k) => typeof e[k] === 'string' && (e[k] as string).trim(),
+          (k) => typeof e[k] === 'string' && e[k].trim(),
         );
         return !tienePerfil && !tieneBloques;
       }).length
@@ -206,6 +206,7 @@ export function validarCorpus(dir: string, opts: { traducido?: boolean; minimos?
   return hallazgos;
 }
 
+// eslint-disable-next-line @typescript-eslint/require-await -- simetría con los otros scripts del pipeline, que sí son async
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const traducido = argv.includes('--translated');

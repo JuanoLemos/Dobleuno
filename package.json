@@ -19,7 +19,7 @@
     "test:web": "npm test -w @dobleuno/web",
     "test:server": "npm test -w @dobleuno/server",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "npm run typecheck -ws --if-present",
+    "typecheck": "npm run typecheck -ws --if-present && tsc -p tsconfig.json",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,html}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css,html}\"",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist .turbo",

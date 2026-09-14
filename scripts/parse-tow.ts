@@ -260,6 +260,20 @@ interface LinkedEntry {
   fields?: { slug?: string; name?: string };
 }
 
+/**
+ * Un valor del statline como texto.
+ *
+ * Los perfiles del sitio vienen con valores string ("4", "-", "2D6"), pero el
+ * JSON no lo garantiza. `String(v)` sobre un objeto da "[object Object]", que
+ * entraría al statline sin que nada falle — y un perfil con esa cadena adentro
+ * es peor que uno vacío, porque parece un dato.
+ */
+function aTexto(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return '';
+}
+
 /** Slugs de una lista de entradas linkeadas (ruleType, association, …). */
 function slugs(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
@@ -340,11 +354,7 @@ function parseUnit(raw: RawFile): ParsedUnit {
   const perfil = Array.isArray(f.unitProfile)
     ? (f.unitProfile as unknown[])
         .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object')
-        .map((p) =>
-          Object.fromEntries(
-            Object.entries(p).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]),
-          ),
-        )
+        .map((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, aTexto(v)])))
     : [];
 
   return ParsedUnitSchema.parse({
@@ -403,6 +413,12 @@ function leerCrudos(kind: 'rule' | 'item' | 'unit', dir: string): RawFile[] {
     .map((f) => JSON.parse(readFileSync(join(sub, f), 'utf-8')) as RawFile);
 }
 
+/**
+ * El trabajo es sincrónico, pero la firma es async a propósito: `kb-sync.ts` la
+ * carga por dynamic import y la tipa como `ParseAllFn`, que devuelve Promise, y
+ * `rules-sync.ts` la espera. Que parezca async es el contrato, no un descuido.
+ */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function parseAll(
   args: CliArgs = { kind: 'all', verbose: false },
   opts: { dataDir?: string; outDir?: string; silent?: boolean } = {},
