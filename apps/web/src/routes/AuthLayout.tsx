@@ -1,19 +1,46 @@
 import { Outlet } from 'react-router-dom';
 
+/**
+ * Layout para login/register. Hero a pantalla completa con la escena de batalla
+ * (hero-armybuilder-dark.png) + el iluminado como splash visual arriba del form.
+ */
 export function AuthLayout() {
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-forge-0 px-6 py-12 text-parchment-50">
-      <div className="w-full max-w-sm">
+    <div className="auth-bg relative flex min-h-[100dvh] flex-col items-center justify-center px-6 py-12 text-parchment-50">
+      <div className="auth-overlay absolute inset-0" aria-hidden="true" />
+      <div className="relative z-10 w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <svg width="48" height="58" viewBox="0 0 100 120" aria-hidden="true">
-            <path d="M50 4 L96 4 L96 60 Q96 96 50 116 Q4 96 4 60 L4 4 Z" fill="#a01919" stroke="#b8860b" strokeWidth="4" />
-            <text x="50" y="68" textAnchor="middle" fontFamily="DM Serif Display, serif" fontSize="44" fill="#f7f5f0" fontWeight="bold">2·1</text>
-          </svg>
+          <img
+            src="/brand/02-illuminated.png"
+            alt="Dobleuno"
+            width={140}
+            height={158}
+            className="sigil-mark drop-shadow-2xl"
+            loading="eager"
+            decoding="sync"
+          />
           <h1 className="font-serif text-3xl">Dobleuno</h1>
           <p className="text-sm text-parchment-300">El compañero de mesa para TOW</p>
         </div>
         <Outlet />
       </div>
+      <style>{`
+        .auth-bg {
+          background-image: url('/brand/hero-armybuilder-dark.png');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          background-color: #0a0a0a;
+        }
+        .auth-overlay {
+          background: linear-gradient(
+            to bottom,
+            rgba(10, 10, 10, 0.55) 0%,
+            rgba(10, 10, 10, 0.4) 40%,
+            rgba(10, 10, 10, 0.75) 100%
+          );
+        }
+      `}</style>
     </div>
   );
 }

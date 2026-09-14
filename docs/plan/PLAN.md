@@ -2,13 +2,17 @@
 
 > Documento vivo. Se actualiza al cerrar cada ola.
 
+> **Estado:** Documento histórico. Congelado al cierre de Ola 0 (2026-07-08).
+> Ver [`ROADMAP.md`](../ROADMAP.md) y [`CHANGELOG.md`](../CHANGELOG.md) para el estado actual.
+> Decisiones lockeadas en este plan siguen vigentes salvo donde PLAN-OLEADAS indique lo contrario.
+
 | | |
 |---|---|
 | **Proyecto** | Dobleuno (companion app de mesa para Warhammer: The Old World) |
 | **Estado** | Ola 0 — Decisiones y plan |
 | **Última actualización** | 2026-07-08 |
 | **Owner** | Juano · **Agente** Mavis (M3 thinking) |
-| **Workspace** | `C:\Users\jlemo\OneDrive\Desktop\OldWorld` |
+| **Workspace** | `C:\Users\jlemo\OneDrive\Desktop\OldWorld\Dobleuno` (el proyecto se mudó dentro de OldWorld/) |
 
 ---
 

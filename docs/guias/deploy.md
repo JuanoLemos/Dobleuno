@@ -1,6 +1,6 @@
 # Guía de Deploy — Dobleuno
 
-> **Estado:** v0.7.0 — Ola 6 cerrada.
+> **Estado:** v0.8.0 — Olas 6 + 7.1 cerradas.
 > **Target:** Hetzner VPS (CX11 €3.29/mes) + opcional Cloudflare en frente.
 
 ---
@@ -60,6 +60,47 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 sudo usermod -aG docker deploy
 ```
 
+### Volumen kbdata (v0.8.0+)
+
+A partir de v0.8.0, el mirror parseado cachea en un volumen Docker para persistir entre reinicios:
+
+```yaml
+# docker-compose.yml — fragmento relevante
+volumes:
+  dobleuno-kbdata:
+    name: dobleuno-kbdata
+  pgdata:
+    name: dobleuno-pgdata
+
+services:
+  server:
+    volumes:
+      - dobleuno-kbdata:/app/data
+```
+
+El volumen se crea automáticamente en el primer `docker compose up -d`. Si querés inspeccionarlo:
+
+```bash
+docker volume inspect dobleuno-kbdata
+# Para limpiarlo (forzar re-sync completo):
+docker compose down
+docker volume rm dobleuno-kbdata
+docker compose up -d
+```
+
+**Re-sync manual (en vez de esperar al cron diario — desde v0.8.0 ya no hay cron):**
+
+```bash
+# 1. Logueate en la app y obtené tu cookie de sesión (o curl con -c cookie.txt)
+# 2. Promové tu user a admin (conexión directa a la DB o env ADMIN_EMAILS al boot):
+psql $DATABASE_URL -c "UPDATE \"user\" SET is_admin = true WHERE email = 'tu@email.com';"
+# 3. Dispará el re-sync:
+curl -X POST http://localhost:3000/api/admin/kb/sync -H "Cookie: $(cat cookie.txt)"
+# → 202 Accepted, responde { status: 'queued', runId }
+curl http://localhost:3000/api/admin/kb/sync/status -H "Cookie: $(cat cookie.txt)"
+# → { status: 'running' | 'success' | 'error', lastRun, chunks }
+```
+
 ### Opción B: Fly.io / Railway / Render (PaaS)
 
 - Pros: deploy con `git push`, HTTPS automático, sin sysadmin.
@@ -92,6 +133,9 @@ DEEPSEEK_MODEL=deepseek-chat
 # OpenAI (embeddings — opcional, si no hay, usa deterministic dev fallback)
 OPENAI_API_KEY=sk-...
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+
+# Admin: emails a promover a is_admin al boot del server (opcional, alternativa a UPDATE manual)
+ADMIN_EMAILS=tu@email.com
 
 # Log
 LOG_LEVEL=info

@@ -90,7 +90,7 @@ export function Listas() {
         <ul className="space-y-2">
           {lists.map((l) => (
             <li key={l.id}>
-              <Card>
+              <Card texture="iron">
                 <div className="flex items-center justify-between gap-2">
                   <Link to={`/listas/${l.id}`} className="flex-1">
                     <p className="font-serif text-lg text-parchment-50">{l.name}</p>

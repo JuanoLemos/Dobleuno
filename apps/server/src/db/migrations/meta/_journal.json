@@ -15,6 +15,20 @@
       "when": 1783609084412,
       "tag": "0001_ambitious_starbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783655148055,
+      "tag": "0002_club_info",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783657940711,
+      "tag": "0003_stale_master_mold",
+      "breakpoints": true
     }
   ]
 }

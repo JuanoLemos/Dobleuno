@@ -14,6 +14,8 @@ export default [
       'apps/web/src/i18n/*.json',
       'data/**',
       'apps/**/dist/**',
+      // Portal Astro es un sub-proyecto con su propio lint
+      'portal/**',
       // Config files y scripts de tooling no necesitan lint
       '**/*.config.{js,mjs,cjs,ts}',
       '**/postcss.config.js',
@@ -26,6 +28,8 @@ export default [
       'scripts/bump-version.js',
       'scripts/mirror-tow.ts',
       'scripts/parse-tow.ts',
+      'scripts/translate-tow.ts',
+      'scripts/rules-sync.ts',
       'scripts/parser/**',
       'apps/web/scripts/**',
     ],

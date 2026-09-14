@@ -5,9 +5,12 @@
  */
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { env } from '../env.js';
 import * as schema from '../db/schema/users.js';
+import { user as userTable } from '../db/schema/users.js';
+import { log } from './logger.js';
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -21,6 +24,20 @@ export const auth = betterAuth({
   }),
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
+  /**
+   * Ola 8 — Trustar el origen del dev server de Vite (5173).
+   * Sin esto, better-auth rechaza con 403 INVALID_ORIGIN las requests
+   * cross-origin desde el cliente React. En prod, agregar el dominio real.
+   *
+   * IMPORTANTE: better-auth v1.6+ lee `trustedOrigins` desde el root de la
+   * config, NO desde `advanced.trustedOrigins`. La doc está en
+   * `dist/context/helpers.mjs:getTrustedOrigins()` — ver también la
+   * nota de Ola 8 sobre por qué no andaba.
+   */
+  trustedOrigins: [
+    'http://localhost:5173',
+    'http://localhost:4321', // portal Astro también
+  ],
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
@@ -41,6 +58,40 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 30, // 30 días
     updateAge: 60 * 60 * 24, // 1 día
+  },
+  /**
+   * Ola 10 — Auto-promover admins en signup.
+   * Si el email del nuevo user está en ADMIN_EMAILS (env), se marca
+   * is_admin=true automáticamente al crearse. Sin esto, había que
+   * reiniciar el server o correr promote-admin.ts manual después del
+   * signup. Ahora es transparente.
+   */
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (createdUser) => {
+          const raw = env.ADMIN_EMAILS.trim();
+          if (!raw) return;
+          const adminEmails = raw
+            .split(',')
+            .map((e) => e.trim().toLowerCase())
+            .filter(Boolean);
+          if (!adminEmails.includes(createdUser.email.toLowerCase())) return;
+          if (createdUser.isAdmin) return;
+          try {
+            await db
+              .update(userTable)
+              .set({ isAdmin: true, updatedAt: new Date() })
+              .where(eq(userTable.id, createdUser.id));
+            log.info(`Auto-promoted ${createdUser.email} to admin (ADMIN_EMAILS match)`);
+          } catch (err) {
+            log.error(`Auto-promote failed for ${createdUser.email}`, {
+              error: (err as Error).message,
+            });
+          }
+        },
+      },
+    },
   },
   advanced: {
     cookiePrefix: 'dobleuno',

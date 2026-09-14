@@ -42,6 +42,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        /**
+         * Brand kit (escudos, heroes, tiles) tiene assets de 3-7 MB.
+         * Default de workbox es 2 MiB → subimos a 10 MiB para que entren
+         * al precache (sin esto, el build falla al final).
+         */
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.dobleuno\.app\/api\/.*$/i,
@@ -77,6 +83,18 @@ export default defineConfig({
     port: 5173,
     host: true,
     strictPort: false,
+    /**
+     * Proxy de /api/* al backend Express (apps/server, puerto 3000).
+     * Sin esto, Vite responde el index.html de la SPA para todo, y el cliente
+     * nunca llega al server.
+     */
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   build: {
     outDir: 'dist',

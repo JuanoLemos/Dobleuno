@@ -13,4 +13,8 @@ coverage/
 *.tsbuildinfo
 data/raw/
 data/processed/
+data/translated/
 nppBackup/
+portal/src/data/
+portal/dist/
+portal/.astro/

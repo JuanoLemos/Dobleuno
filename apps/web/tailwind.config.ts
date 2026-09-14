@@ -50,9 +50,16 @@ const config: Config = {
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       boxShadow: {
+        // Dark shadows (forge) — usadas en la app principal
         soft: '0 2px 8px rgba(0,0,0,0.4)',
         lifted: '0 8px 24px -4px rgba(0,0,0,0.5)',
         glow: '0 0 0 1px rgba(160,25,25,0.3), 0 4px 12px -2px rgba(160,25,25,0.3)',
+        // Cream shadows (portal) — usadas en la home y secciones editorial
+        'cream-soft': '0 2px 8px rgba(20,23,30,0.04)',
+        'cream-lifted': '0 4px 16px -2px rgba(20,23,30,0.06)',
+        'cream-pressed': '0 1px 2px rgba(20,23,30,0.05)',
+        'cream-sigil':
+          '0 1px 0 rgba(184,134,11,0.35), 0 6px 24px -8px rgba(160,25,25,0.25)',
       },
       keyframes: {
         'fade-in': {

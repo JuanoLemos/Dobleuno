@@ -1,0 +1,19 @@
+{
+  "requests": [
+    {
+      "prompt": "Medieval heater shield forged in dark hammered iron, ornate heraldic design on a black field showing a stylized '2 dot 1' monogram in dripping blood red enamel, slight rust and patina, dark fantasy heraldic aesthetic like Warhammer The Old World, isolated on pure black background, dramatic moody lighting from upper left, painterly detail, square composition, no text, no letters",
+      "aspect_ratio": "1:1",
+      "resolution": "2K"
+    },
+    {
+      "prompt": "Illuminated manuscript heater shield from a medieval codex, painted in gold leaf and vermilion red on aged vellum, intricate celtic knotwork interlace borders, central shield bears a stylized '2 dot 1' monogram in red and gold with delicate filigree flourishes, slight foxing and aged paper texture around the edges, flat medieval illustration style with gold leaf shimmer, square composition, isolated on cream background, no text, no letters",
+      "aspect_ratio": "1:1",
+      "resolution": "2K"
+    },
+    {
+      "prompt": "Antique hand-engraved wax seal of a heater shield pressed onto an old parchment nautical map, faint rhumb lines and compass rose visible in the background, the seal shows a stylized '2 dot 1' monogram in dark iron gall ink brown on aged cream vellum, slightly distressed torn edges of the parchment, naturalist engraving style from a 16th century atlas, square composition, isolated on cream background, no text, no letters",
+      "aspect_ratio": "1:1",
+      "resolution": "2K"
+    }
+  ]
+}

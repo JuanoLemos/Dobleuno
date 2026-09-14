@@ -2,6 +2,98 @@
 
 Todas las versiones notables.
 
+## [1.0.0] — 2026-09-13 — Olas 8 y 9 cerradas (Home del club + Mesas)
+
+> Release que cierra trabajo que quedó en el árbol sin commitear desde el 2026-07-10.
+> El detalle por ola vive en `CHANGELOG.md` (raíz) — acá va el resumen técnico.
+
+### Added
+- **Ola 8 — Home del club + TabShell** (ADR-006/007/008)
+  - `db/schema/club.ts` + migración `0002_club_info.sql` — info del club editable por admin
+  - `routes/club.ts`, `routes/account.ts` — API de club e info de cuenta
+  - `components/shell/{TabShell,NavTabs,ClubBanner}.tsx` — shell con tabs; se elimina el bottom-nav
+  - `routes/Home.tsx` + `styles/portal.css` — home editorial cream (semilla de Ola 10)
+- **Ola 9 — Mesas** (ADR-009)
+  - `db/schema/mesas.ts` + migración `0003_stale_master_mold.sql` — `mesas`, `sesiones`, `reservas`
+  - `routes/{mesas,sesiones,reservas}.ts` — CRUD admin + GET público + reserva de jugador
+  - Anti-doble-booking: `UNIQUE(sesion_id, user_id)` + validación de capacidad
+  - `routes/Mesas.tsx`, `components/mesas/{SesionCard,MesasAdmin}.tsx`, `lib/{mesas,reservas,club}-api.ts`
+  - 15 tests nuevos (mesas 10 + reservas 5)
+- **Portal Astro** — sitio estático del reglamento traducido (`portal/`), pipeline `scripts/{translate-tow,rules-sync}.ts`
+- **Brand kit** — 9 piezas generadas, servidas desde `apps/web/public/brand/` y `portal/public/brand/`
+- **i18n** — claves `club.loading`, `club.more`, `club.edit` en es-AR y en (antes solo defaultMessage)
+- **Server: SPA fallback** (semilla de Ola 11) — sirve `apps/web/dist` si existe; `WEB_DIST_DIR` lo hace configurable
+
+### Fixed
+- `routes/Home.tsx` — `icon` tipado como `LucideIcon` (antes `ComponentType<{size?: number}>`, incompatible con lucide-react) y se quitan dos `useIntl()` sin usar. Rompía `typecheck`.
+- `routes/auth.ts` — `req.body` se estrecha a `unknown` antes de `Object.keys`, sin `any` implícito
+- `routes/mesas.ts` — imports sin usar (`and`, `sesiones`)
+- `routes/{reservas,sesiones}.ts` — `as string` innecesarios en `req.params.id`
+- `routes/Mesas.tsx` — `eslint-disable` de `react-hooks/exhaustive-deps`, regla que no está configurada en el flat config (era error de lint)
+- `__tests__/server.test.ts` — el test "GET / responde 404" quedó obsoleto con el SPA fallback; ahora contempla ambos casos según exista o no el build del cliente
+
+### Verificado
+- `npm run typecheck` — 0 errores · `npm run lint` — 0 errores, 0 warnings · `npm test` — 130 pasando, 11 skipped (live)
+
+## [0.8.0] — 2026-07-09 — Ola 7.1 cerrada (KB sync admin)
+
+### Added
+- **Server: tabla `users.is_admin`** (`apps/server/src/db/schema/users.ts`)
+  - Flag binario para promover admins vía env var `ADMIN_EMAILS`
+  - Migración `0001_ambitious_starbolt.sql` agrega la columna
+- **Server: middleware `auth`** (`apps/server/src/middleware/auth.ts`)
+  - `requireAuth` — verifica sesión de better-auth
+  - `requireAdmin` — valida `is_admin=true` además de auth
+- **Server: script `promote-admin`** (`apps/server/src/scripts/promote-admin.ts`)
+  - Promueve usuarios listados en `ADMIN_EMAILS` al boot del server
+- **Server: ruta `POST /api/admin/kb/sync`** (`apps/server/src/routes/admin-kb.ts`)
+  - Body: opcional `{ runNow?: boolean }` — si no se pasa, ejecuta en background (202)
+  - Respuesta inmediata: `{ status: 'queued', runId }`
+  - `GET /api/admin/kb/sync/status` — devuelve estado del job en curso + logs
+  - `GET /api/admin/kb/sync/logs` — últimas N ejecuciones
+  - Protegido con `requireAuth + requireAdmin`
+- **Server: orquestador `kb-sync`** (`apps/server/src/lib/kb-sync.ts`)
+  - Pipeline `mirror → parse → ingest` con job queue in-memory (no más cron diario)
+  - Estado observable (`idle | running | success | error`) + logs persistentes
+  - Idempotente — múltiples POSTs no duplican jobs
+- **Server: `kb-ingest`** (`apps/server/src/lib/kb-ingest.ts`)
+  - Lee `data/processed/*.json`, genera embeddings, persiste en `kb_chunks`
+  - Embeddings reusables: OpenAI en prod o Deterministic (dev/test)
+  - Maneja updates (upsert por `ref` + `source`) — re-sync no duplica
+- **Scripts refactorizados para ser importados:**
+  - `scripts/mirror-tow.ts` — `runMirror()` exportable
+  - `scripts/parse-tow.ts` — `runParse()` exportable
+- **Deploy: docker-compose** — volumen nuevo `dobleuno-kbdata`
+  - Cache de mirror parsea persiste entre reinicios
+  - Montado en `server:/app/data` y `postgres:/var/lib/postgresql/data`
+- **Deploy: docker-compose** — removido campo `description` (invalid en Compose moderno)
+
+### Changed
+- **Server: `env.ts`** — agregada env var `ADMIN_EMAILS` (CSV de emails a promover)
+- **Server: `index.ts`** — invoca `promoteAdmin()` al boot con `env.ADMIN_EMAILS`
+- **Tooling: `drizzle.config.ts`** — usa `tsx` + path root `node_modules` (drizzle-kit ESM fix)
+- **Server: `battles.test.ts`** — fix flaky test (orden de inserts en suite)
+
+### Notes
+- **Migración necesaria al deployar v0.8.0:**
+  ```bash
+  npm run db:migrate -w @dobleuno/server
+  # Asegurarse de que el env ADMIN_EMAILS esté configurado si se quiere un admin desde el boot.
+  ```
+- **Promover admin manualmente (alternativa al env):** conectar a la DB y ejecutar `UPDATE "user" SET is_admin = true WHERE email = '<email>';`
+- **Re-sync manual desde la web:** cualquier admin puede triggear un re-sync completo desde el panel Admin (próxima Ola) o directamente con curl:
+  ```bash
+  curl -X POST http://localhost:3000/api/admin/kb/sync -H "Cookie: <session>"
+  ```
+
+### Tests
+- **108 tests** (88 server + 20 web) + 11 live skip
+  - +5 nuevos respecto a v0.7.0: `admin-kb.test.ts` (3) + `kb-sync.test.ts` (2)
+- Lint 0 errors, 0 warnings
+- Typecheck verde en 4 workspaces (server, web, shared, root)
+- Build web/server OK
+- **E2E verificado:** `shabilez@gmail.com` → `POST /api/admin/kb/sync` → 21 chunks reales en `kb_chunks` desde `tow.whfb.app`
+
 ## [0.7.0] — 2026-07-09 — Ola 6 cerrada (Polish + Deploy)
 
 ### Added

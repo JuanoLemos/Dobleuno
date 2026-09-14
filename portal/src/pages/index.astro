@@ -1,0 +1,114 @@
+---
+import Base from '../layouts/Base.astro';
+import Sigil from '../components/Sigil.astro';
+import { getRules, getItems, hasData } from '../lib/data';
+
+const rules = getRules();
+const items = getItems();
+const data = hasData();
+const total = rules.length + items.length;
+---
+
+<Base title="Inicio" description="El reglamento de Warhammer: The Old World traducido al español y navegable. Listo para usar en la mesa.">
+  <!-- Hero con fondo cartográfico + escudo iluminado -->
+  <section class="hero-cartografo relative overflow-hidden pt-16 md:pt-24 pb-20">
+    <div class="hero-overlay absolute inset-0"></div>
+    <div class="container-wide relative z-10">
+      <div class="grid md:grid-cols-12 gap-10 items-end">
+        <div class="md:col-span-7">
+          <p class="section-label mb-6">Lámina I · Dobleuno</p>
+          <h1 class="font-serif text-5xl md:text-7xl leading-[1.05] tracking-tight">
+            El reglamento,<br />
+            traducido y <span style="color: var(--accent)">ordenado</span>.
+          </h1>
+          <p class="mt-6 text-lg max-w-xl leading-relaxed" style="color: var(--fg)">
+            Reglas especiales e items mágicos de TOW en español rioplatense. Buscá, navegá por fase o imprimí una regla para tenerla al lado de la mesa.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a href="/reglas" class="cta-primary">Ver reglas especiales</a>
+            <a href="/items" class="cta-ghost">Ver items mágicos</a>
+          </div>
+          {data && (
+            <p class="mt-6 text-xs font-mono" style="color: var(--muted)">
+              {rules.length} reglas · {items.length} items · {total} entradas en total
+            </p>
+          )}
+        </div>
+        <div class="md:col-span-5 flex md:justify-end">
+          <Sigil size="full" class="drop-shadow-2xl" />
+        </div>
+      </div>
+      <hr class="divider-accent mt-20" />
+    </div>
+  </section>
+
+  <!-- Categorías (Cartógrafo: en lámina) -->
+  <section class="container-wide py-16">
+    <p class="section-label mb-3">Lámina II · Por fase</p>
+    <h2 class="font-serif text-4xl mb-8 leading-tight">Navegá por categoría.</h2>
+    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+      {[
+        { label: 'Movimiento', tag: 'movement', desc: 'Carga, march, reform, terrain.' },
+        { label: 'Combate', tag: 'combat', desc: 'To-wound, saves, combat result.' },
+        { label: 'Magia', tag: 'magic', desc: 'Casting, dispel, lore matching.' },
+        { label: 'Psicología', tag: 'psychology', desc: 'Fear, terror, panic, frenzy.' },
+        { label: 'Mando', tag: 'leadership', desc: 'Ld tests, BSB, generals.' },
+        { label: 'Equipo', tag: 'equipment', desc: 'Weapons, armour, mounts.' },
+        { label: 'Disparo', tag: 'shooting', desc: 'Shooting phase, fast cavalry.' },
+        { label: 'Armadura', tag: 'armour', desc: 'Save modifiers, ward saves.' },
+      ].map((c) => (
+        <a href={`/reglas?cat=${c.tag}`} class="lamina block">
+          <p class="font-serif text-lg mb-1">{c.label}</p>
+          <p class="text-xs" style="color: var(--muted)">{c.desc}</p>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  {!data && (
+    <section class="container-narrow my-12">
+      <div class="lamina" style="border-style: dashed">
+        <p class="font-serif text-xl mb-2" style="color: var(--accent)">Aún no hay datos traducidos.</p>
+        <p class="text-sm mb-3" style="color: var(--muted)">
+          Para generar el contenido del portal, corré desde la raíz del monorepo:
+        </p>
+        <pre class="font-mono text-xs p-3 overflow-x-auto" style="background: var(--bg-elev)">npm run rules:sync</pre>
+        <p class="text-xs mt-3" style="color: var(--muted)">
+          Necesitás <code class="font-mono">DEEPSEEK_API_KEY</code> en tu <code class="font-mono">.env</code>.
+          El sync descarga HTML de <a href="https://tow.whfb.app">tow.whfb.app</a>, lo parsea, lo traduce con DeepSeek, y copia el resultado a este portal.
+        </p>
+      </div>
+    </section>
+  )}
+</Base>
+
+<style>
+  /* Hero del Cartógrafo: mapa náutico antiguo como fondo, con overlay oscuro para legibilidad */
+  .hero-cartografo {
+    background-image: url('/brand/hero-cartografo.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  /* En light mode aclaramos el overlay para que el pergamino se vea */
+  :root[data-skin="cartografo"][data-mode="light"] .hero-cartografo {
+    background-color: var(--bg);
+  }
+  /* Overlay: oscurece el fondo en dark mode, aclara en light */
+  .hero-overlay {
+    background: linear-gradient(
+      to bottom,
+      rgba(14, 26, 38, 0.6) 0%,
+      rgba(14, 26, 38, 0.4) 50%,
+      rgba(14, 26, 38, 0.85) 100%
+    );
+  }
+  :root[data-skin="cartografo"][data-mode="light"] .hero-overlay {
+    background: linear-gradient(
+      to bottom,
+      rgba(240, 234, 216, 0.4) 0%,
+      rgba(240, 234, 216, 0.2) 50%,
+      rgba(240, 234, 216, 0.6) 100%
+    );
+  }
+</style>

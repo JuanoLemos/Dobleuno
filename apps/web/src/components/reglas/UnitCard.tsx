@@ -6,7 +6,7 @@ import { Card, CardHeader, CardSubtitle, CardTitle } from '../ui/Card.js';
 export function UnitCard({ unit }: { unit: CachedUnit }) {
   const stats = unit.stats;
   return (
-    <Card>
+    <Card texture="iron">
       <CardHeader>
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-bronze-700">

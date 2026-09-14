@@ -1,0 +1,75 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getItems } from '../../lib/data';
+
+export function getStaticPaths() {
+  return getItems().map((i) => ({
+    params: { slug: i.id.replace(/^item-/, '') },
+  }));
+}
+
+const { slug } = Astro.params;
+const item = getItems().find((i) => i.id === `item-${slug}` || i.id === slug);
+
+if (!item) {
+  return Astro.redirect('/items');
+}
+
+const rarityLabels: Record<string, string> = {
+  common: 'Común',
+  uncommon: 'Poco común',
+  rare: 'Raro',
+  'very-rare': 'Muy raro',
+};
+const rarityClasses: Record<string, string> = {
+  common: 'tag',
+  uncommon: 'tag',
+  rare: 'tag tag-accent',
+  'very-rare': 'tag tag-ink',
+};
+---
+
+<Base title={item.nameEs} description={`Item mágico "${item.nameEs}" de TOW — ${item.descriptionEs.slice(0, 120)}…`}>
+  <article class="container-narrow py-12">
+    <a href="/items" class="no-print text-sm hover:underline" style="color: var(--muted)">← Todos los items</a>
+
+    <header class="mt-4 mb-8">
+      <div class="flex items-center gap-2 mb-3 flex-wrap">
+        <span class={rarityClasses[item.rarity] ?? 'tag'}>{rarityLabels[item.rarity] ?? item.rarity}</span>
+        <span class="font-mono text-sm" style="color: var(--accent)">{item.points} pts</span>
+        <span class="section-label">Lámina</span>
+      </div>
+      <h1 class="font-serif text-4xl md:text-5xl leading-tight mb-2">{item.nameEs}</h1>
+      {item.nameEs !== item.name && (
+        <p class="text-sm italic" style="color: var(--muted)">{item.name}</p>
+      )}
+      <hr class="divider-accent mt-4" />
+    </header>
+
+    <div class="lamina mb-6 print-clean">
+      <p class="text-base leading-relaxed" style="color: var(--fg)">{item.descriptionEs}</p>
+    </div>
+
+    <details class="no-print mb-8">
+      <summary class="cursor-pointer text-sm hover:underline" style="color: var(--muted)">Ver texto original (inglés)</summary>
+      <p class="mt-3 text-sm leading-relaxed italic border-l-2 pl-4" style="color: var(--muted); border-color: var(--line)">
+        {item.description}
+      </p>
+    </details>
+
+    <footer class="text-xs flex flex-wrap items-center justify-between gap-3 pt-4 no-print" style="color: var(--muted)">
+      <p>
+        <span class="section-label">Fuente</span> ·
+        <a href={item.source.page} rel="noopener" class="font-mono ml-1">{item.source.page}</a>
+        · Verificado: {item.source.lastVerified}
+      </p>
+      <button class="cta-ghost text-xs" onclick="window.print()">Imprimir item</button>
+    </footer>
+
+    <!-- Print-only header -->
+    <div class="print-only mb-4 pb-2" style="border-bottom: 2px solid black">
+      <p class="font-serif text-2xl">Dobleuno · {item.nameEs}</p>
+      <p class="text-xs">Fuente: {item.source.page} · Verificado: {item.source.lastVerified}</p>
+    </div>
+  </article>
+</Base>

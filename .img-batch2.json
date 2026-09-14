@@ -1,0 +1,34 @@
+{
+  "requests": [
+    {
+      "prompt": "Antique nautical map parchment background texture for website hero section, aged vellum cream color with faint hand-drawn rhumb lines, compass roses, coastline contours and sea monster silhouettes, watercolor stains and foxing, sepia and warm earth tones, ultra wide panoramic aspect ratio, soft faded edges, NO text NO letters NO numbers, atmospheric old-world cartography aesthetic, painterly texture suitable for overlaying text on top",
+      "aspect_ratio": "21:9",
+      "resolution": "2K"
+    },
+    {
+      "prompt": "Illuminated manuscript parchment background texture for website hero section, aged vellum cream with faint gothic script lines and decorative borders, gold leaf ornamental flourishes in corners, watercolor ink stains, sepia and warm earth tones, ultra wide panoramic aspect ratio, soft faded edges, NO text NO letters NO numbers, atmospheric medieval codex aesthetic, painterly texture suitable for overlaying text on top",
+      "aspect_ratio": "21:9",
+      "resolution": "2K"
+    },
+    {
+      "prompt": "Dark fantasy military campaign map background texture for mobile app hero, weathered dark parchment with ink wash in deep blue and black, faint territorial borders drawn in red ink, strategic army markers as tiny silhouettes, candlelit warm glow from edges, atmospheric Warhammer The Old World aesthetic, panoramic wide aspect ratio, NO text NO letters NO numbers, painterly texture suitable for overlaying text on top",
+      "aspect_ratio": "16:9",
+      "resolution": "2K"
+    },
+    {
+      "prompt": "Cinematic dark fantasy scene of two armored generals in medieval war council leaning over a large battle map spread on a wooden table, guttering candles, scattered dice, ink quill and parchment, one general pointing with gauntlet finger at the map, warm candlelight against cold shadows, atmospheric Warhammer The Old World grimdark aesthetic, oil painting style with rich detail, panoramic wide composition, NO text NO letters NO numbers",
+      "aspect_ratio": "16:9",
+      "resolution": "2K"
+    },
+    {
+      "prompt": "Square tileable background texture for mobile app, aged dark iron or hammered metal plate with subtle rust patina, rivets at corners, weathered surface, dark fantasy Warhammer aesthetic, suitable for UI card backgrounds, square aspect ratio, NO text NO letters NO numbers",
+      "aspect_ratio": "1:1",
+      "resolution": "2K"
+    },
+    {
+      "prompt": "Square tileable background texture for mobile app, aged burgundy leather book cover with embossed gold border frame and central blank cartouche, worn patina, dark fantasy medieval tome aesthetic, suitable for UI card backgrounds, square aspect ratio, NO text NO letters NO numbers",
+      "aspect_ratio": "1:1",
+      "resolution": "2K"
+    }
+  ]
+}

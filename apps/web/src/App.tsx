@@ -6,6 +6,7 @@ import { AppShell } from './components/layout/AppShell.js';
 import { AuthLayout } from './routes/AuthLayout.js';
 import { Toast } from './components/ui/Toast.js';
 
+const Home = lazy(() => import('./routes/Home.js').then((m) => ({ default: m.Home })));
 const Listas = lazy(() => import('./routes/Listas.js').then((m) => ({ default: m.Listas })));
 const ListaEdit = lazy(() =>
   import('./routes/ListaEdit.js').then((m) => ({ default: m.ListaEdit })),
@@ -15,6 +16,8 @@ const BattleEdit = lazy(() =>
   import('./routes/BattleEdit.js').then((m) => ({ default: m.BattleEdit })),
 );
 const Reglas = lazy(() => import('./routes/Reglas.js').then((m) => ({ default: m.Reglas })));
+const Legal = lazy(() => import('./routes/Legal.js').then((m) => ({ default: m.Legal })));
+const Mesas = lazy(() => import('./routes/Mesas.js').then((m) => ({ default: m.Mesas })));
 const Login = lazy(() => import('./routes/auth/Login.js').then((m) => ({ default: m.Login })));
 const Register = lazy(() =>
   import('./routes/auth/Register.js').then((m) => ({ default: m.Register })),
@@ -54,9 +57,18 @@ export default function App() {
           />
         </Route>
 
-        {/* Main app (con AppShell + bottom nav) */}
+        {/* Home cream (Ola 10) — sin AppShell, sin TabShell. Portal editorial. */}
+        <Route
+          path="/"
+          element={
+            <Suspense fallback={<Loading />}>
+              <Home />
+            </Suspense>
+          }
+        />
+
+        {/* Main app (TabShell — header horizontal con tabs) */}
         <Route element={<AppShell />}>
-          <Route path="/" element={<Navigate to="/listas" replace />} />
           <Route
             path="/listas"
             element={
@@ -113,10 +125,26 @@ export default function App() {
               </Suspense>
             }
           />
+          <Route
+            path="/legal/:kind"
+            element={
+              <Suspense fallback={<Loading />}>
+                <Legal />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/mesas"
+            element={
+              <Suspense fallback={<Loading />}>
+                <Mesas />
+              </Suspense>
+            }
+          />
         </Route>
 
         {/* 404 */}
-        <Route path="*" element={<Navigate to="/listas" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toast />
     </>

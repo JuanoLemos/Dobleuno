@@ -1,0 +1,51 @@
+---
+/**
+ * Search box + filtrado de tarjetas en la página.
+ * Uso: pasar el selector CSS de las tarjetas a filtrar.
+ */
+interface Props {
+  targetSelector: string;
+  placeholder?: string;
+}
+const { targetSelector, placeholder = 'Buscar…' } = Astro.props;
+---
+
+<div class="search-box" data-search={targetSelector}>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-ink-muted shrink-0">
+    <circle cx="11" cy="11" r="7" />
+    <path d="m21 21-4.3-4.3" />
+  </svg>
+  <input
+    type="search"
+    placeholder={placeholder}
+    data-search-input
+    aria-label="Buscar"
+  />
+</div>
+
+<script>
+  function initSearch(): void {
+    document.querySelectorAll<HTMLElement>('[data-search]').forEach((box) => {
+      const selector = box.dataset.search!;
+      const input = box.querySelector<HTMLInputElement>('[data-search-input]');
+      if (!input) return;
+      const targets = document.querySelectorAll<HTMLElement>(selector);
+      const haystacks = new Map<HTMLElement, string>();
+      targets.forEach((el) => {
+        haystacks.set(el, (el.textContent ?? '').toLowerCase());
+      });
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        for (const [el, text] of haystacks) {
+          if (!q || text.includes(q)) {
+            el.classList.remove('search-hidden');
+          } else {
+            el.classList.add('search-hidden')
+          }
+        }
+      });
+    });
+  }
+  initSearch();
+  document.addEventListener('astro:page-load', initSearch);
+</script>

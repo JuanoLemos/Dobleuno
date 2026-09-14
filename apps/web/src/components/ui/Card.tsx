@@ -1,12 +1,33 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '../../lib/cn.js';
 
+export type CardTexture = 'none' | 'iron' | 'leather';
+
+/**
+ * Card con textura opcional:
+ * - iron: tile-iron-plate.png (cards de unidades, listas)
+ * - leather: tile-leather-tome.png (cards de items, libros)
+ * - none: sin textura
+ */
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   variant?: 'default' | 'elevated' | 'outlined';
+  texture?: CardTexture;
 }
 
-export function Card({ children, className, variant = 'default', ...rest }: CardProps) {
+const textureStyles: Record<CardTexture, string> = {
+  none: '',
+  iron: 'card-texture-iron',
+  leather: 'card-texture-leather',
+};
+
+export function Card({
+  children,
+  className,
+  variant = 'default',
+  texture = 'none',
+  ...rest
+}: CardProps) {
   return (
     <div
       className={cn(
@@ -14,6 +35,7 @@ export function Card({ children, className, variant = 'default', ...rest }: Card
         variant === 'default' && 'border-forge-3',
         variant === 'elevated' && 'border-forge-3 shadow-lifted',
         variant === 'outlined' && 'border-forge-2 bg-transparent',
+        textureStyles[texture],
         'p-4',
         className,
       )}

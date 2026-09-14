@@ -56,4 +56,18 @@
   .stat-tile {
     @apply flex flex-col items-center justify-center rounded-lg border border-forge-3 bg-forge-2 p-2;
   }
+
+  /* Texturas del brand kit — sobre la card, oscurecidas para legibilidad */
+  .card-texture-iron {
+    background-image: linear-gradient(rgba(10, 10, 10, 0.78), rgba(10, 10, 10, 0.78)),
+      url('/brand/tile-iron-plate.png');
+    background-size: cover;
+    background-position: center;
+  }
+  .card-texture-leather {
+    background-image: linear-gradient(rgba(10, 10, 10, 0.78), rgba(10, 10, 10, 0.78)),
+      url('/brand/tile-leather-tome.png');
+    background-size: cover;
+    background-position: center;
+  }
 }

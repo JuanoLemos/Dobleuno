@@ -1,6 +1,6 @@
 {
   "name": "dobleuno",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Dobleuno — companion app de mesa para Warhammer: The Old World",
   "type": "module",
@@ -30,8 +30,12 @@
     "release": "node scripts/bump-version.js && git push --follow-tags",
     "mirror": "tsx scripts/mirror-tow.ts",
     "parse": "tsx scripts/parse-tow.ts",
+    "translate": "tsx scripts/translate-tow.ts",
+    "rules:sync": "tsx scripts/rules-sync.ts",
     "kb:rebuild": "npm run mirror && npm run parse",
-    "parse:test": "vitest run"
+    "parse:test": "vitest run",
+    "portal:dev": "cd portal && npm run dev",
+    "portal:build": "cd portal && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

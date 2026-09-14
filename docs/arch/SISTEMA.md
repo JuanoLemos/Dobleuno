@@ -1,6 +1,6 @@
 # Sistema Dobleuno
 
-> Documento vivo de arquitectura. Última: 2026-07-08 (Ola 1).
+> Documento vivo de arquitectura. Última: 2026-07-09 (v0.8.0, Ola 7.1 cerrada).
 
 ## Vista general
 
@@ -19,35 +19,45 @@ Dobleuno es un sistema cliente-servidor para asistir a un jugador de Warhammer: 
 │ Service Worker           │                │ /api/battles  (CRUD, Ola 4) │
 │ (offline-first)          │                │ /api/rules    (search,Ola 2)│
 └──────────────────────────┘                │ /api/ask      (RAG,  Ola 5) │
-                                           │                             │
-                                           │ ┌──────────────────────┐   │
-                                           │ │ PostgreSQL 16        │   │
-                                           │ │ + pgvector (Ola 5)   │   │
-                                           │ │                      │   │
-                                           │ │ users · sessions     │   │
-                                           │ │ lists · battles      │   │
-                                           │ │ kb · faqs            │   │
-                                           │ │ embeddings           │   │
-                                           │ └──────────────────────┘   │
-                                           │                             │
-                                           │ ┌──────────────────────┐   │
-                                           │ │ mirror-tow (cron)    │   │
-                                           │ │ diario 03:00 UTC     │   │
-                                           │ │ → KB + embeddings    │   │
-                                           │ └──────────────────────┘   │
-                                           │                             │
-                                           │ ┌──────────────────────┐   │
-                                           │ │ DeepSeek client      │──►│ DeepSeek API
-                                           │ │ (SDK openai)         │   │ (chat + embed OAI)
-                                           │ └──────────────────────┘   │
-                                           └─────────────────────────────┘
+                                            │ /api/admin/kb/* (admin,Ola 7.1)│
+                                            │                             │
+                                            │ ┌──────────────────────┐   │
+                                            │ │ PostgreSQL 16        │   │
+                                            │ │ + pgvector (Ola 5)   │   │
+                                            │ │                      │   │
+                                            │ │ users (con is_admin, │   │
+                                            │ │   Ola 7.1)           │   │
+                                            │ │ · sessions           │   │
+                                            │ │ lists · battles      │   │
+                                            │ │ kb_chunks · faqs     │   │
+                                            │ │ embeddings           │   │
+                                            │ │                      │   │
+                                            │ │ dobleuno-kbdata      │   │
+                                            │ │ (volumen Docker,     │   │
+                                            │ │  cache KB persist.)  │   │
+                                            │ └──────────────────────┘   │
+                                            │                             │
+                                            │ ┌──────────────────────┐   │
+                                            │ │ mirror-tow (admin)   │   │
+                                            │ │ POST /api/admin/kb/  │   │
+                                            │ │ sync (Ola 7.1)       │   │
+                                            │ │ → KB + embeddings    │   │
+                                            │ └──────────────────────┘   │
+                                            │                             │
+                                            │ ┌──────────────────────┐   │
+                                            │ │ DeepSeek client      │──►│ DeepSeek API
+                                            │ │ (SDK openai)         │   │ (chat + embed OAI)
+                                            │ └──────────────────────┘   │
+                                            └─────────────────────────────┘
 ```
+
+- `dobleuno-kbdata` (volumen docker) — cache del mirror parseado, montado en `server:/app/data`. Persiste entre reinicios para evitar re-descarga diaria de tow.whfb.app.
 
 ## Capas del cliente
 
 | Capa | Tech | Por qué |
 |---|---|---|
-| Build | Vite 7 | Hot reload rápido, PWA plugin maduro |
+| Build | Vite 5.4.11 | Hot reload rápido, PWA plugin maduro |
 | UI | React 18 + TS 5 | Ecosistema maduro, type-safe |
 | Estilos | Tailwind 3.4 | Mobile-first, utility-first, paleta custom |
 | Routing | React Router 6 | Data router con loaders |
@@ -81,6 +91,7 @@ Dobleuno es un sistema cliente-servidor para asistir a un jugador de Warhammer: 
 - ADR-003: backend + LLM (revive, acepta — ahora con DeepSeek)
 - ADR-004: hosting Hetzner VPS (pendiente aceptar formalmente)
 - ADR-005: LLM provider (DeepSeek + OpenAI embeddings)
+- ADR-006: KB sync vía endpoint admin (revive y acepta — Ola 7.1). Reemplaza el cron diario por un job queue in-memory triggereable vía `POST /api/admin/kb/sync`. Razón: control operacional fino (re-sync manual sin esperar al cron) + cache persistente entre reinicios vía volumen `dobleuno-kbdata`.
 
 ## Principios
 

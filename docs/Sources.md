@@ -13,9 +13,12 @@ Dobleuno usa las siguientes fuentes para el contenido de reglas de Warhammer: Th
 - FAQs oficiales de Games Workshop
 - Datos de unidades, items mágicos, reglas especiales
 
-**Uso en Dobleuno:** mirror periódico (cron diario a las 03:00 UTC) que descarga las páginas, las parsea a JSON estructurado, y las indexa en la base de conocimiento.
+**Uso en Dobleuno:** mirror triggereable vía `POST /api/admin/kb/sync` (admin-only, job queue in-memory; desde v0.8.0 se reemplazó el cron diario original de Ola 2). Descarga las páginas, las parsea a JSON estructurado, y las indexa en la base de conocimiento.
 
-**License:** El contenido scrapeado de `tow.whfb.app` se usa en runtime y cache local de Dobleuno. **No se redistribuye** en este repositorio ni se commitea al código fuente. Ver `.gitignore` (`data/raw/`, `data/processed/`).
+**License:** El contenido scrapeado de `tow.whfb.app` se usa en runtime y cache local de Dobleuno. **No se redistribuye** en este repositorio ni se commitea al código fuente.
+- `.gitignore` declara `data/raw/` y `data/processed/` para evitar commit accidental del cache.
+- En producción, `docker-compose.yml` monta este cache en el volumen `dobleuno-kbdata` (persiste entre reinicios).
+- Cualquier derecho sobre las reglas de TOW permanece con Games Workshop — Dobleuno parafrasea y codifica, no reproduce texto literal extenso.
 
 ### Fuente secundaria
 
@@ -34,4 +37,4 @@ Dobleuno usa las siguientes fuentes para el contenido de reglas de Warhammer: Th
 
 ## Créditos adicionales
 
-- Stack: Vite, React, Tailwind, Drizzle, better-auth, Dexie, Zustand, Zod, react-router, react-intl — open source,各自的 licencia en sus repos.
+- Stack: Vite, React, Tailwind, Drizzle, better-auth, Dexie, Zustand, Zod, react-router, react-intl — open source, cada dependencia con su propia licencia en sus respectivos repos.

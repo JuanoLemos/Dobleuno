@@ -2,6 +2,11 @@
 
 > Brief de ejecución. Decisiones locked, archivos a crear, criterios de "done" por ola. Este doc **no se reabre** salvo crisis. Las dudas que aparezcan durante la ejecución se resuelven en el momento, no se reabre el plan.
 
+> **Estado:** Documento histórico. Congelado al cierre de Ola 7.1 (2026-07-09).
+> Las descripciones por ola son snapshots del scope planeado en su momento, no necesariamente lo que se construyó.
+> Ver [`ROADMAP.md`](../ROADMAP.md) y [`CHANGELOG.md`](../CHANGELOG.md) para el estado real.
+> **Nota:** la decisión implícita de usar `node-cron` para el mirror diario (mencionada en `Decisiones que NO consulto`) quedó **obsoleta en Ola 7.1 (v0.8.0)**: el mirror ahora es triggereable vía `POST /api/admin/kb/sync` (background, job queue in-memory). Ver `apps/server/src/lib/kb-sync.ts`.
+
 | | |
 |---|---|
 | **Proyecto** | Dobleuno |
@@ -40,7 +45,7 @@
 - Vitest + Testing Library (estándar Vite)
 - ESLint flat config (estándar 2025)
 - Prettier 3 (estándar)
-- node-cron para mirror (simple, suficiente)
+- node-cron para mirror (simple, suficiente) — **OBSOLETO desde v0.8.0**: ahora vía `/api/admin/kb/sync`
 - Zod compartido cliente+server (un solo schema)
 - GitHub Actions para CI (free, ya tenés GitHub)
 - bcryptjs (pure JS, sin native build)

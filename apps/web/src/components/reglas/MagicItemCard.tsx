@@ -11,7 +11,7 @@ const RARITY_COLORS: Record<CachedMagicItem['rarity'], string> = {
 
 export function MagicItemCard({ item }: { item: CachedMagicItem }) {
   return (
-    <Card>
+    <Card texture="leather">
       <CardHeader>
         <div className="flex-1">
           <CardTitle>

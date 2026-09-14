@@ -4,6 +4,12 @@
 > **Ejecutado por:** usuario (Juano) en local, Windows + PowerShell
 > **Modelo:** DeepSeek (vía SDK `openai`, base URL `https://api.deepseek.com`)
 > **Versión del prompt:** 0.1
+>
+> **Documento histórico — Ola 0.5 (v0.1.0), cerrada 2026-07-08.**
+> Resultados frozen. Para métricas vivas del oráculo (latencia p50/p95, distribución FAQ/KB/LLM, fallos), ver:
+> - [`docs/CHANGELOG.md`](../CHANGELOG.md) — entradas `[0.6.0]` (RAG) y `[0.8.0]` (KB sync admin)
+> - Logs del server en `/api/admin/kb/sync/status` (admin-only desde v0.8.0+)
+> Los action items enumerados abajo (FAQs, KB indexing, búsqueda tiered) se cumplieron en Olas 5 y 7.1. Marcar como referencia histórica.
 
 ## Resultado global
 
@@ -46,5 +52,5 @@ Cuando lleguemos a Ola 5:
 
 ## Pendiente
 
-- [ ] Pegar el output detallado de `npm test` (latencia por pregunta) a este archivo cuando se vuelva a correr
-- [ ] Medir latencia p50 y p95 de las 10 preguntas en una corrida fresca
+- [x] Pegar el output detallado de `npm test` (latencia por pregunta) a este archivo cuando se vuelva a correr — *medido en `docs/CHANGELOG.md` [0.6.0]*
+- [x] Medir latencia p50 y p95 de las 10 preguntas en una corrida fresca — *medido en `docs/CHANGELOG.md` [0.6.0]*

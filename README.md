@@ -2,7 +2,9 @@
 
 > Companion app de mesa para **Warhammer: The Old World**. Mobile-first PWA con asistente IA, tracker de batalla y KB de reglas offline.
 
-**Estado:** Olas 0–5 cerradas · v0.6.0 desplegado. Ola 6 (polish + deploy) en curso.
+**Project intent:** Dobleuno es **software libre, gratuito y de uso no-comercial**, desarrollado para mejorar la calidad de juego en clubes de Warhammer: The Old World. No monetiza al usuario final. Si Games Workshop quisiera incorporar o relicenciar el proyecto, sería a través de una negociación separada con el autor.
+
+**Estado:** Olas 0–6 + 7.1 cerradas · v0.8.0 desplegado.
 
 ---
 
@@ -10,10 +12,10 @@
 
 | Capa | Tech |
 |---|---|
-| Cliente | Vite 5 + React 18 + TypeScript 5 + Tailwind CSS 3.4 + PWA (vite-plugin-pwa) |
+| Cliente | Vite 5.4 + React 18 + TypeScript 5 + Tailwind CSS 3.4 + PWA (vite-plugin-pwa) |
 | Server | Node 22 + Express 4 + TypeScript 5 + Drizzle ORM |
 | DB | PostgreSQL 16 + pgvector (embeddings para RAG) |
-| Auth | better-auth (email/pass + sessions) |
+| Auth | better-auth (email/pass + sessions + admin vía `ADMIN_EMAILS`) |
 | State (cliente) | Zustand |
 | Local DB (cliente) | Dexie (IndexedDB) |
 | LLM | DeepSeek V3/R1/V4 vía SDK `openai` (OpenAI-compatible) |
@@ -42,7 +44,7 @@ Dobleuno/
 │   ├── mecanicas/    # Reglas de TOW
 │   ├── plan/         # PLAN, PLAN-OLEADAS
 │   └── qa/           # Resultados de tests
-├── data/             # Mirror de tow.whfb.app (gitignored)
+├── data/             # Mirror de tow.whfb.app (gitignored, persistido en docker-compose)
 ├── scripts/          # Mirror + parse + bump-version
 ├── .github/          # CI
 ├── docker-compose.yml # Postgres (pgvector) + server
@@ -85,7 +87,8 @@ cp apps/server/.env.example apps/server/.env
 # Editar apps/server/.env:
 #   DATABASE_URL=postgres://dobleuno:dobleuno_dev@localhost:5432/dobleuno
 #   DEEPSEEK_API_KEY=sk-...              # para LLM
-#   OPENAI_API_KEY=sk-...                 # opcional, para embeddings reales
+#   OPENAI_API_KEY=sk-...                # opcional, para embeddings reales
+#   ADMIN_EMAILS=tu@email.com            # opcional, usuario promovido a admin al boot
 
 # Web
 cp apps/web/.env.example apps/web/.env
@@ -96,9 +99,9 @@ cp apps/web/.env.example apps/web/.env
 ### Migrar DB
 
 ```bash
-npm run db:migrate            # Drizzle migrations (schema)
-npm run pgvector:install      # pgvector extension + indices (custom SQL)
-npm run kb:seed               # Popular kb_chunks con 9 unidades + 5 reglas
+npm run db:migrate                                          # Drizzle migrations (schema)
+npm run pgvector:install -w @dobleuno/server                # pgvector extension + indices (custom SQL)
+npm run kb:seed -w @dobleuno/server                         # Popular kb_chunks con 9 unidades + 5 reglas
 ```
 
 ### Dev
@@ -120,21 +123,26 @@ npm run dev
 | `npm run dev:web` | Solo cliente |
 | `npm run dev:server` | Solo server |
 | `npm run build` | Build de cliente + server |
-| `npm test` | Corre tests de todos los workspaces (103 tests + 11 live skip) |
+| `npm test` | Corre tests de todos los workspaces (108 tests + 11 live skip) |
 | `npm run test:web` | Tests del cliente (20 tests) |
-| `npm run test:server` | Tests del server (83 tests) |
+| `npm run test:server` | Tests del server (88 tests) |
 | `npm run lint` | ESLint en todo el monorepo (max-warnings=0) |
 | `npm run typecheck` | TypeScript en todos los workspaces |
 | `npm run format` | Prettier write |
 | `npm run db:up` | Levanta Postgres + pgvector en Docker |
 | `npm run db:down` | Apaga Postgres |
 | `npm run db:migrate` | Aplica migraciones de Drizzle |
-| `npm run pgvector:install` | Instala extension pgvector + indices |
-| `npm run kb:seed` | Puebla kb_chunks con unidades + reglas seed |
-| `npm run kb:rebuild` | Mirror + parse de tow.whfb.app |
+| `npm run pgvector:install -w @dobleuno/server` | Instala extension pgvector + indices |
+| `npm run kb:seed -w @dobleuno/server` | Puebla kb_chunks con unidades + reglas seed |
+| `npm run kb:rebuild` | Mirror + parse de tow.whfb.app (CLI legacy — preferir `/api/admin/kb/sync` en prod) |
 | `npm run mirror` | Solo mirror |
 | `npm run parse` | Solo parse |
 | `npm run version:bump` | Bump version + commit + tag |
+| `curl -X POST http://localhost:3000/api/admin/kb/sync -H "Cookie: $SESSION"` | Dispara re-sync KB en background (requiere admin) |
+| `npm run translate` | Traduce las reglas (inglés → español) usando DeepSeek. Cache por hash, no re-traduce lo que no cambió. |
+| `npm run rules:sync` | Pipeline completo: `mirror + parse + translate + copy a portal/src/data/` |
+| `npm run portal:dev` | Levanta el portal Astro en `http://localhost:4321` |
+| `npm run portal:build` | Build del portal estático a `portal/dist/` |
 
 ---
 
@@ -149,7 +157,8 @@ npm run dev
 | 3 | List builder con validación | ✅ | v0.4.0 |
 | 4 | Battle tracker | ✅ | v0.5.0 |
 | 5 | Rules oracle con RAG (pgvector + DeepSeek) | ✅ | v0.6.0 |
-| 6 | Polish + deploy (Hetzner + Cloudflare) | 🟡 | v0.7.0 (próximo) |
+| 6 | Polish + deploy (Hetzner + Cloudflare + Dockerfile) | ✅ | v0.7.0 |
+| 7.1 | KB sync admin (background + persist + cache docker) | ✅ | v0.8.0 |
 
 Ver `docs/plan/PLAN-OLEADAS.md` para detalle por ola.
 
@@ -177,14 +186,103 @@ Sigilo "2·1" en heater shield (ver portal v0).
 
 ## Deploy
 
-Ver [`docs/guias/deploy.md`](docs/guias/deploy.md) para guía completa (Hetzner VPS, Caddy/Nginx, Cloudflare Pages, backups, monitoring).
+Ver [`docs/guias/deploy.md`](docs/guias/deploy.md) para guía completa (Hetzner VPS, Caddy/Nginx, Cloudflare Pages, backups, monitoring, volumen `dobleuno-kbdata` para v0.8.0+).
 
 TL;DR:
 
 ```bash
 docker compose up -d
 curl http://localhost:3000/api/health
+# Después de v0.8.0, el re-sync KB se hace vía admin endpoint, no más cron diario.
 ```
+
+---
+
+## Portal de reglas (Astro)
+
+Adicional a la app mobile, hay un **portal estático** con el reglamento traducido y navegable. Pensado para:
+
+- Buscar una regla rápido en el celu del rival.
+- Imprimir una regla individual y tenerla al lado de la mesa.
+- Compartir el link con un club que quiera consultar el reglamento en español.
+
+### Estructura
+
+```
+Dobleuno/
+├── data/
+│   ├── raw/              # HTML scrapeado de tow.whfb.app (gitignored)
+│   ├── processed/        # JSON parseado, en inglés (gitignored)
+│   └── translated/       # JSON en español, cache de traducción (gitignored)
+├── scripts/
+│   ├── mirror-tow.ts     # Descarga HTML respetando robots.txt
+│   ├── parse-tow.ts      # HTML → JSON (chequea con Zod)
+│   ├── translate-tow.ts  # JSON en → JSON es con DeepSeek, cache por hash
+│   └── rules-sync.ts     # Orquestador: corre los 3 + copia al portal
+└── portal/               # Astro project — el sitio estático
+    ├── src/
+    │   ├── data/         # Copia de data/translated/ (gitignored)
+    │   ├── pages/        # index, reglas/, items/, sobre
+    │   ├── components/   # Sigil, RuleCard, ItemCard, SearchBox, Footer
+    │   └── layouts/      # Base.astro
+    └── public/           # favicon, etc.
+```
+
+### Getting the rules data
+
+Para generar el contenido del portal (descarga + parse + traducción + copy):
+
+```bash
+# 1. Asegurate de tener DEEPSEEK_API_KEY en apps/server/.env
+#    (también podés exportarla: export DEEPSEEK_API_KEY=sk-...)
+
+# 2. Corré el pipeline completo
+npm run rules:sync
+
+# Flags útiles:
+#   --skip-mirror       si ya tenés data/raw/ y no querés re-descargar
+#   --skip-translate    si solo querés mirror + parse + copy (sin gastar LLM)
+#   --type=rule|item    solo reglas o solo items
+#   --force-translate   ignora cache de traducción
+#   --concurrency=4     más paralelismo (default 2)
+```
+
+El script:
+1. Descarga HTML de `tow.whfb.app` (rate limit 2s, respeta robots.txt, User-Agent identificable).
+2. Parsea a JSON estructurado (chequea con Zod).
+3. Traduce con DeepSeek, en batches de 8, con cache por hash del source.
+4. Copia el resultado a `portal/src/data/`.
+
+### Build & dev del portal
+
+```bash
+# Instalar Astro (la primera vez)
+cd portal && npm install && cd ..
+
+# Dev (auto-reload)
+npm run portal:dev
+# → http://localhost:4321
+
+# Build de producción
+npm run portal:build
+# → portal/dist/  (sitio estático, listo para subir a cualquier hosting)
+```
+
+El sitio no necesita runtime: es HTML + CSS + JS estático. Lo podés servir con nginx, Caddy, GitHub Pages, Cloudflare Pages, etc.
+
+### Costo y tiempo
+
+Para traducir las ~38 reglas especiales y ~23 items mágicos del manifest actual:
+
+- **Tiempo**: ~5-10 minutos (2-3 requests LLM en paralelo).
+- **Costo DeepSeek**: ~$0.02-$0.05 (depende del largo de las descripciones).
+- **Re-syncs incrementales** (solo cuando cambia el source): centavos, gracias al cache.
+
+Si más adelante agregás unidades (60+ Empire + 50+ Bretonia), el costo escala linealmente. ~$0.50-$1.00 para todo el set.
+
+### Disclaimer de marca
+
+El portal declara explícitamente que Dobleuno es software libre, gratuito y no-comercial, y que no está afiliado a Games Workshop. Ver `/legal/terms` y `LICENSE.md` para los detalles.
 
 ---
 

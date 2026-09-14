@@ -11,6 +11,7 @@ export function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -20,6 +21,13 @@ export function Register() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    // Validación de consent: el checkbox es obligatorio (Ley 25.326 / GDPR art. 6).
+    if (!consent) {
+      setError(formatMessage({ id: 'auth.signup.consent.required' }));
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await authClient.signUp.email({ email, password, name });
@@ -62,6 +70,40 @@ export function Register() {
         minLength={8}
         required
       />
+
+      <label className="flex items-start gap-2 text-xs text-parchment-300">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-blood-500"
+          required
+        />
+        <span>
+          <FormattedMessage
+            id="auth.signup.consent"
+            values={{
+              privacy: (
+                <Link
+                  to="/legal/privacy"
+                  className="text-bronze-400 underline-offset-4 hover:underline"
+                >
+                  {formatMessage({ id: 'auth.signup.consent.privacy' })}
+                </Link>
+              ),
+              terms: (
+                <Link
+                  to="/legal/terms"
+                  className="text-bronze-400 underline-offset-4 hover:underline"
+                >
+                  {formatMessage({ id: 'auth.signup.consent.terms' })}
+                </Link>
+              ),
+            }}
+          />
+        </span>
+      </label>
+
       {error && <p className="text-sm text-blood-400">{error}</p>}
       <Button type="submit" loading={loading} fullWidth size="lg">
         <FormattedMessage id="auth.signup.cta" />
