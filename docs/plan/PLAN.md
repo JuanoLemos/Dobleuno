@@ -12,7 +12,7 @@
 | **Estado** | Ola 0 — Decisiones y plan |
 | **Última actualización** | 2026-07-08 |
 | **Owner** | Juano · **Agente** Mavis (M3 thinking) |
-| **Workspace** | `C:\Users\jlemo\OneDrive\Desktop\OldWorld\Dobleuno` (el proyecto se mudó dentro de OldWorld/) |
+| **Workspace** | `C:\Users\jlemo\OneDrive\Desktop\Dobleuno` (desde 2026-09-13; antes anidado en `OldWorld/`) |
 
 ---
 
@@ -329,7 +329,7 @@ Dobleuno/
 
 | # | Pregunta | Mi recomendación | Bloquea |
 |---|---|---|---|
-| D1 | ¿Mantenemos el proyecto en `OldWorld/Dobleuno/` o lo movemos a otro lado? | `OldWorld/Dobleuno/` (al lado de `.legacy/`) | Ola 1 |
+| D1 | ¿Mantenemos el proyecto en `OldWorld/Dobleuno/` o lo movemos a otro lado? | ~~`OldWorld/Dobleuno/`~~ → carpeta hermana `Desktop/Dobleuno/` (revisado 2026-09-13: anidar un repo dentro del working tree de otro confundía el `git status` del fork) | Ola 1 |
 | D2 | Hosting server: ¿Hetzner VPS o Railway? | **Hetzner** (más barato, control total, vos ya tenés Hetzner?) | Ola 6 |
 | D3 | LLM provider: ¿Anthropic Claude, OpenAI, o self-hosted? | **Anthropic Claude 3.5 Sonnet** (mejor RAG, costo OK, configurable) | Ola 5 |
 | D4 | Dominio: ¿`dobleuno.app`, `dobleuno.ar`, `dobleuno.dev`? | `dobleuno.app` si está libre, sino `.dev` | Ola 6 |

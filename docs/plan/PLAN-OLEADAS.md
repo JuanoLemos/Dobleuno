@@ -15,7 +15,7 @@
 | **Decisiones locked** | 14 decisiones D1-D14, todas resueltas en este doc |
 | **Total olas hasta MVP** | 7 (0.5 + 1 + 2 + 3 + 4 + 5 + 6) |
 | **Total días estimados** | 30-35 días hábiles |
-| **Workspace** | `OldWorld/Dobleuno/` |
+| **Workspace** | `Desktop/Dobleuno/` (movido 2026-09-13 desde `OldWorld/Dobleuno/`) |
 
 ---
 
@@ -23,7 +23,7 @@
 
 | # | Decisión | Valor | Justificación |
 |---|---|---|---|
-| D1 | Ubicación | `OldWorld/Dobleuno/` | Al lado de `.legacy/`, separado, fácil de mover |
+| D1 | Ubicación | `Desktop/Dobleuno/` | Revisado 2026-09-13: era `OldWorld/Dobleuno/`, pero el repo anidado ensuciaba el status del fork padre |
 | D2 | Hosting server | **Hetzner CX22** + Docker Compose | €5/mes, control total, EU, ideal para Postgres+pgvector |
 | D3 | LLM provider | **DeepSeek V3 / R1 / V4** (vía SDK openai) | ~20-30x más barato que Claude, OpenAI-compatible, calidad suficiente |
 | D4 | Dominio | `dobleuno.app` (fallback: `dobleuno.dev`) | .app fuerza HTTPS, memorable |
