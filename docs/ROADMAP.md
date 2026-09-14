@@ -53,7 +53,7 @@ estaba en el árbol sin commitear (Home cream editorial y SPA fallback del serve
 | Bundle BattleEdit (gzipped) | 3.72KB |
 | Bundle Reglas (gzipped) | 37.16KB (incluye OraclePanel) — sin re-medir post-v0.8.0 |
 | PWA precache | 565KB, 33 entries (offline-first funcional) |
-| Chunks en KB seed | ~28 (9 unidades + 5 reglas básicas) — re-sync admin puede ampliar |
+| Chunks en KB seed | 23 (9 unidades × 2 chunks + 5 reglas básicas) — verificado en CI; re-sync admin puede ampliar |
 | Endpoints API | `/api/health`, `/api/auth`, `/api/lists`, `/api/battles`, `/api/ask`, `/api/admin/kb/{sync,status,logs}`, `/api/club`, `/api/mesas`, `/api/sesiones`, `/api/mis-reservas` + `/api` (rulesRouter, account) |
 | DB tables | `user`, `session`, `account`, `verification`, `lists`, `battles`, `units`, `special_rules`, `magic_items`, `scenarios`, `ingest_log`, `kb_chunks` (+ columna `users.is_admin` en v0.8.0, + `club_info` en v0.9.0, + `mesas`, `sesiones`, `reservas` en v1.0.0) |
 | Mirror KB | Volumen `dobleuno-kbdata` (persiste entre reinicios), job queue in-memory |
