@@ -62,9 +62,10 @@ const ReglasSchema = PaginaSchema.extend({
 const ItemsSchema = PaginaSchema.extend({
   type: z.string().max(60).optional(),
   /**
-   * Familia del item ('arcane-items', 'armour-runes', …). Es distinta de
-   * `type`: un item tiene un tipo y puede estar en varias familias, y es la
-   * familia la que decide si entra o no en una lista de ejército.
+   * Lista de items en la que la entrada está disponible
+   * ('empire-of-man-magic-items-type', 'forest-spites-type', …). Es distinta
+   * de `type` ('Ability', 'Arcane Item', …): el tipo dice qué es el item, la
+   * lista dice en qué ejército se puede usar.
    */
   family: z.string().max(60).optional(),
 });
@@ -85,6 +86,32 @@ const UnidadesSchema = PaginaSchema.extend({
 function filtroTexto(columna: AnyPgColumn, q?: string): SQL | undefined {
   const termino = q?.trim();
   return termino ? ilike(columna, `%${termino.toLowerCase()}%`) : undefined;
+}
+
+/**
+ * Orden por relevancia cuando hay término de búsqueda.
+ *
+ * `search_text` incluye el cuerpo, así que "great weapon" matchea también a
+ * "Braystaff", que la menciona. Ordenado alfabéticamente, Braystaff quedaba
+ * arriba de Great Weapon: en un reglamento que se consulta en la mesa, eso es
+ * lo contrario de lo que se necesita.
+ *
+ * El orden es: nombre exacto, nombre que empieza con el término, nombre que lo
+ * contiene, y el resto (matchea solo por el cuerpo). Dentro de cada grupo,
+ * alfabético.
+ */
+function ordenar(columna: AnyPgColumn, q?: string): SQL[] {
+  const termino = q?.trim().toLowerCase();
+  if (!termino) return [asc(columna)];
+  return [
+    sql`case
+      when lower(${columna}) = ${termino} then 0
+      when lower(${columna}) like ${termino + '%'} then 1
+      when lower(${columna}) like ${'%' + termino + '%'} then 2
+      else 3
+    end`,
+    asc(columna),
+  ];
 }
 
 function combinar(condiciones: Array<SQL | undefined>): SQL | undefined {
@@ -134,7 +161,7 @@ rulesRouter.get('/rules', async (req, res) => {
       .select()
       .from(specialRules)
       .where(where)
-      .orderBy(asc(specialRules.name))
+      .orderBy(...ordenar(specialRules.name, q))
       .limit(limit)
       .offset((page - 1) * limit);
     res.json({ total: total?.n ?? 0, page, limit, rules: filas });
@@ -204,7 +231,7 @@ rulesRouter.get('/items', async (req, res) => {
       .select()
       .from(magicItems)
       .where(where)
-      .orderBy(asc(magicItems.name))
+      .orderBy(...ordenar(magicItems.name, q))
       .limit(limit)
       .offset((page - 1) * limit);
     res.json({ total: total?.n ?? 0, page, limit, items: filas });
@@ -256,7 +283,7 @@ rulesRouter.get('/units', async (req, res) => {
       .select()
       .from(units)
       .where(where)
-      .orderBy(asc(units.name))
+      .orderBy(...ordenar(units.name, q))
       .limit(limit)
       .offset((page - 1) * limit);
     res.json({ total: total?.n ?? 0, page, limit, count: filas.length, units: filas });
@@ -314,19 +341,19 @@ rulesRouter.get('/kb/search', async (req, res) => {
         .select()
         .from(units)
         .where(combinar([filtroTexto(units.searchText, q), army ? eq(units.army, army) : undefined]))
-        .orderBy(asc(units.name))
+        .orderBy(...ordenar(units.name, q))
         .limit(limit),
       db
         .select()
         .from(specialRules)
         .where(filtroTexto(specialRules.searchText, q))
-        .orderBy(asc(specialRules.name))
+        .orderBy(...ordenar(specialRules.name, q))
         .limit(limit),
       db
         .select()
         .from(magicItems)
         .where(filtroTexto(magicItems.searchText, q))
-        .orderBy(asc(magicItems.name))
+        .orderBy(...ordenar(magicItems.name, q))
         .limit(limit),
     ]);
 

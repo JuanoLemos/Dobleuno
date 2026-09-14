@@ -8,7 +8,7 @@
  * Ola 11: la taxonomía pasa a texto libre. El esquema original asumía 2
  * facciones, 5 categorías de unidad, 8 de regla y 4 rarezas, escrito antes de
  * ver los datos. El corpus real de tow.whfb.app tiene 19 ejércitos, 32
- * secciones de reglamento y 70 familias de item, y los statlines usan "-",
+ * secciones de reglamento y 53 listas de items, y los statlines usan "-",
  * "(+1)" y "2D6", que no entran en un integer. Forzar ese mapeo fue lo que
  * hizo que las 39 reglas del mirror viejo cayeran todas en 'equipment'.
  *
@@ -125,7 +125,12 @@ export const magicItems = pgTable(
     /** Traducción al español. null = todavía no se tradujo. */
     nameEs: text('name_es'),
     descriptionEs: text('description_es'),
-    /** Familias: 'arcane-items', 'armour-runes', … (70 en el corpus). */
+    /**
+     * Listas de items en las que la entrada está disponible:
+     * 'empire-of-man-magic-items-type', 'forest-spites-type', … (53 en el
+     * corpus). Son las listas por ejército del reglamento, no una taxonomía
+     * de familias — es lo que decide si un item entra o no en una lista.
+     */
     itemTypes: text('item_types').array().notNull().default([]),
     associations: text('associations').array().notNull().default([]),
     sourcePage: text('source_page').notNull(),

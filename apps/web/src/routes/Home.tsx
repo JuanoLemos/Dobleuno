@@ -110,7 +110,7 @@ export function Home() {
               </Link>
             </div>
             <p className="mt-6 text-xs text-ink-muted">
-              v1.0.0 · MVP en construcción. Hecho en la mesa, no en un sprint.
+              v1.2.0 · MVP en construcción. Hecho en la mesa, no en un sprint.
             </p>
           </div>
           <div className="flex justify-center md:col-span-5 md:justify-end">
@@ -253,8 +253,9 @@ export function Home() {
             { wave: 'Ola 1–5', text: 'Foundation, KB local, list builder, battle tracker, oráculo.', done: true },
             { wave: 'Ola 6–8', text: 'Auth multi-user, server propio, shell con tabs, club.', done: true },
             { wave: 'Ola 9', text: 'Mesas y reservas del club.', done: true },
-            { wave: 'Ola 10', text: 'Portal de entrada cream + bottom-nav mobile.', current: true },
-            { wave: 'Ola 11+', text: 'Crónicas (galería + AI battle stories), stats, coaching.' },
+            { wave: 'Ola 10', text: 'Crónicas: relato de la partida con IA + galería de fotos.', done: true },
+            { wave: 'Ola 11', text: 'Codex en React: el reglamento completo, buscable y sin señal.', current: true },
+            { wave: 'Ola 12+', text: 'Deploy consolidado, stats, coaching.' },
           ].map((item) => (
             <li
               key={item.wave}

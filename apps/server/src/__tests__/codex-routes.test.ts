@@ -74,7 +74,9 @@ describe('Codex — validación de query params', () => {
   });
 
   it('acepta los filtros del Codex', async () => {
-    const res = await request(app).get('/api/items?type=Weapon&family=arcane-items&q=fuego');
+    const res = await request(app).get(
+      '/api/items?type=Magic%20Weapon&family=empire-of-man-magic-items-type&q=espada',
+    );
     expect([200, 503]).toContain(res.status);
     expect((res.body as { error?: string }).error).not.toBe(NO_MATCHEO);
   });

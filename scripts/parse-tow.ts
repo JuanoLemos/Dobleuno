@@ -68,7 +68,7 @@ const ParsedItemSchema = z.object({
   type: z.string().default(''),
   /** Costo en puntos. 0 = sin costo declarado. */
   cost: z.number().int().nonnegative().default(0),
-  /** Familias de item: 'arcane-items', 'armour-runes', … */
+  /** Listas de items por ejército: 'empire-of-man-magic-items-type', … */
   itemTypes: z.array(z.string()).default([]),
   associations: z.array(z.string()).default([]),
   text: z.string(),

@@ -2,7 +2,7 @@
  * FacetNav — navegación por sección del reglamento (o familia de item).
  *
  * El portal Astro tenía 8 categorías fijas con su número romano hardcodeado.
- * El corpus real trae 31 secciones de reglamento y 70 familias de item, así
+ * El corpus real trae 31 secciones de reglamento y 8 tipos de item, así
  * que las facetas vienen del server con su conteo y el romano se calcula.
  */
 interface FacetNavProps {
@@ -19,6 +19,18 @@ export function titulo(slug: string): string {
     .split('-')
     .map((p) => (p.length > 2 ? p[0]!.toUpperCase() + p.slice(1) : p))
     .join(' ');
+}
+
+/**
+ * Etiqueta de una lista de items.
+ *
+ * Los slugs del sitio son 'empire-of-man-magic-items-type' y
+ * 'forest-spites-type'. Pasados por `titulo()` quedan "Empire Of Man Magic
+ * Items Type", que es ruido: el sufijo se repite en todas y no distingue nada.
+ * Lo que importa es de quién es la lista.
+ */
+export function tituloDeLista(slug: string): string {
+  return titulo(slug.replace(/-magic-items-type$/, '').replace(/-type$/, ''));
 }
 
 const ROMANOS: Array<[number, string]> = [

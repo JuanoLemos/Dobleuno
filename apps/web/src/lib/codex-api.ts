@@ -75,7 +75,7 @@ export interface ConsultaCodex {
   q?: string;
   /** Sección del reglamento (reglas) o tipo (items). */
   filtro?: string;
-  /** Solo items: familia donde está disponible ('arcane-items', …). */
+  /** Solo items: lista donde está disponible ('empire-of-man-magic-items-type', …). */
   familia?: string;
   page?: number;
   limit?: number;

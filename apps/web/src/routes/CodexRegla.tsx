@@ -69,7 +69,7 @@ export function CodexRegla() {
       <FichaCodex
         volverA="/reglas"
         volverLabel="Todas las reglas"
-        seccion={regla.ruleType ? titulo(regla.ruleType) : 'Regla'}
+        seccion="Regla"
         nombre={nombre}
         original={nombre !== regla.name ? regla.name : null}
         tags={regla.ruleType ? <span className="codex-tag codex-tag-accent">{titulo(regla.ruleType)}</span> : null}

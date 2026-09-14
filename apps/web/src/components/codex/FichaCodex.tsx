@@ -20,6 +20,7 @@ interface FichaCodexProps {
   cuerpo: string;
   /** El texto original en inglés, si la ficha se está mostrando traducida. */
   textoOriginal: string | null;
+  /** `page` es el número de página del reglamento impreso, no una URL. */
   fuente: { page: string; url: string };
   children?: ReactNode;
 }
@@ -77,9 +78,14 @@ export function FichaCodex({
       <footer className="codex-no-print flex flex-wrap items-center justify-between gap-3 pt-4 text-xs codex-muted">
         <p>
           <span className="codex-label">Fuente</span> ·{' '}
-          <a href={fuente.url || fuente.page} rel="noopener noreferrer" target="_blank" className="font-mono">
-            {fuente.page}
-          </a>
+          {fuente.url ? (
+            <a href={fuente.url} rel="noopener noreferrer" target="_blank">
+              tow.whfb.app
+            </a>
+          ) : (
+            'tow.whfb.app'
+          )}
+          {fuente.page && <span className="font-mono"> · pág. {fuente.page}</span>}
         </p>
         <button type="button" className="codex-cta-ghost" onClick={() => window.print()}>
           <Printer size={12} className="mr-1 inline" />
@@ -90,7 +96,9 @@ export function FichaCodex({
       {/* Encabezado que solo existe en papel: la hoja sale de contexto. */}
       <div className="codex-print-only mb-4 border-b-2 border-black pb-2">
         <p className="font-serif text-2xl">Dobleuno · {nombre}</p>
-        <p className="text-xs">Fuente: {fuente.page}</p>
+        <p className="text-xs">
+          Fuente: tow.whfb.app{fuente.page && ` · pág. ${fuente.page}`}
+        </p>
       </div>
     </article>
   );

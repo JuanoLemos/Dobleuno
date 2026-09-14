@@ -1,16 +1,16 @@
 /**
  * /items/:slug — un item mágico.
  *
- * Los `itemTypes` son las familias donde el item está disponible ('arcane-items',
- * 'armour-runes', …). Van como tags porque son lo que decide si entra o no en
- * una lista, más que el `type`.
+ * Los `itemTypes` son las listas de ejército donde el item está disponible
+ * ('empire-of-man-magic-items-type', …). Van como tags porque son ellas las que
+ * deciden si entra o no en una lista, más que el `type`.
  */
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { CodexLayout } from '../components/codex/CodexLayout.js';
 import { FichaCodex } from '../components/codex/FichaCodex.js';
-import { titulo } from '../components/codex/FacetNav.js';
+import { tituloDeLista } from '../components/codex/FacetNav.js';
 import {
   obtenerItem,
   nombreVisible,
@@ -88,11 +88,11 @@ export function CodexItem() {
       >
         {item.itemTypes.length > 0 && (
           <section className="codex-no-print mb-8">
-            <p className="codex-label mb-2">Disponible en</p>
+            <p className="codex-label mb-2">Disponible en las listas de</p>
             <div className="flex flex-wrap gap-2">
               {item.itemTypes.map((t) => (
                 <Link key={t} to={`/items?fam=${encodeURIComponent(t)}`} className="codex-tag">
-                  {titulo(t)}
+                  {tituloDeLista(t)}
                 </Link>
               ))}
             </div>

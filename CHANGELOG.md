@@ -64,7 +64,7 @@ fase de Combate
 ### Changed
 - Taxonomía en texto libre (migraciones `0005` y `0006`): fuera los enums de 2 facciones, 5
   categorías, 8 tipos de regla y 4 rarezas. El corpus real tiene 31 ejércitos, 31 secciones de
-  reglamento y 70 familias de item, y los statlines usan `-`, `(+1)` y `2D6`.
+  reglamento y 53 listas de items, y los statlines usan `-`, `(+1)` y `2D6`.
 - `npm run parse:test` entra a CI. Los tests de `scripts/` no corrían: no es un workspace.
 - El corpus se siembra desde `data/translated/` cuando existe, y desde `data/processed/` si no.
 
