@@ -8,8 +8,9 @@
  *   4. Mandar a DeepSeek con system prompt v0.1.
  *   5. Validar que las citas en la respuesta correspondan a chunks reales.
  *
- * Si pgvector no está disponible (DB local sin extension), el paso 2 hace
- * fallback a LIKE/ILIKE en el `text` del chunk. Menos preciso pero funcional.
+ * El paso 2 depende de pgvector. Si la extension no está instalada, el
+ * retrieval devuelve vacío y el oráculo contesta que no tiene información
+ * suficiente — preferimos eso a responder con contexto irrelevante.
  */
 
 import { sql } from 'drizzle-orm';
@@ -32,7 +33,8 @@ export interface AskOutput {
   citations: Citation[];
   chunksUsed: number;
   provider: string;
-  fallback: 'pgvector' | 'text-search' | 'none';
+  /** De dónde salió el contexto. 'none' = no se recuperó ningún chunk. */
+  fallback: 'pgvector' | 'none';
 }
 
 const DEFAULT_LIMIT = 5;
@@ -87,7 +89,7 @@ export async function ask(input: AskInput): Promise<AskOutput> {
     citations,
     chunksUsed: chunks.length,
     provider: provider.name,
-    fallback: chunks.length > 0 ? 'pgvector' : 'text-search',
+    fallback: 'pgvector',
   };
 }
 
@@ -118,7 +120,6 @@ function toRows(res: unknown): Array<Record<string, unknown>> {
 async function retrieveChunks(input: RetrieveInput): Promise<KBChunk[]> {
   if (!(await isDbHealthy())) return [];
 
-  // Intentar pgvector primero
   try {
     const vecLiteral = `[${input.questionVec.join(',')}]`;
     const factionFilter = input.faction ? sql`AND faction = ${input.faction}` : sql``;
@@ -137,32 +138,9 @@ async function retrieveChunks(input: RetrieveInput): Promise<KBChunk[]> {
       return rows.map(rowToChunk);
     }
   } catch (err) {
-    log.warn('pgvector search failed, falling back to text search', {
-      error: (err as Error).message,
-    });
-  }
-
-  // Fallback: ILIKE text search
-  try {
-    const terms = input.questionVec
-      .slice(0, 5)
-      .map((_, i) => `embedding ILIKE '%"${i}":%'`)
-      .join(' OR ');
-    const factionFilter = input.faction ? sql`AND faction = ${input.faction}` : sql``;
-    const rows = toRows(
-      await db.execute(sql`
-      SELECT id, source, ref, title, text, faction, embedding, created_at
-      FROM kb_chunks
-      WHERE (text ILIKE ${`%${input.questionVec.slice(0, 1).join('')}%`} OR ${sql.raw(terms)})
-      ${factionFilter}
-      LIMIT ${input.limit}
-    `),
-    );
-    if (rows.length > 0) {
-      return rows.map(rowToChunk);
-    }
-  } catch (err) {
-    log.error('Text search fallback also failed', { error: (err as Error).message });
+    // Sin pgvector no hay segundo intento: devolvemos vacío y ask() responde
+    // que no tiene información suficiente.
+    log.error('pgvector search failed', { error: (err as Error).message });
   }
 
   return [];

@@ -202,6 +202,32 @@ describe('Oráculo — cuando no hay contexto', () => {
     expect(dbExecute).not.toHaveBeenCalled();
     expect(createCompletion).not.toHaveBeenCalled();
   });
+
+  it('si falla la query de pgvector no hay segundo intento', async () => {
+    // Antes existía un fallback a ILIKE sobre el texto del chunk. Se borró: sin
+    // la extension instalada preferimos no responder a responder con contexto
+    // traído por un match textual arbitrario.
+    dbExecute.mockRejectedValue(new Error('type "vector" does not exist'));
+
+    const res = await ask({ question: '¿Y si no está instalado pgvector?' });
+
+    expect(dbExecute).toHaveBeenCalledTimes(1);
+    expect(res.answer).toContain('No tengo información suficiente');
+    expect(res.fallback).toBe('none');
+    expect(createCompletion).not.toHaveBeenCalled();
+  });
+});
+
+describe('Oráculo — origen del contexto', () => {
+  it('reporta fallback pgvector cuando recuperó chunks', async () => {
+    llmAnswers('Con contexto. [cita:1]');
+
+    const res = await ask({ question: '¿De dónde salió el contexto?' });
+
+    expect(res.fallback).toBe('pgvector');
+    expect(res.provider).toBe('deterministic');
+    expect(dbExecute).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ─── Errores del LLM ──────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ export interface AskResponse {
   citations: Citation[];
   chunksUsed: number;
   provider: string;
-  fallback: 'pgvector' | 'text-search' | 'none';
+  fallback: 'pgvector' | 'none';
 }
 
 export const askApi = {
