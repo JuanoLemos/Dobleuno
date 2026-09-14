@@ -63,6 +63,12 @@ jobs:
       - name: Install pgvector extension
         run: npm run pgvector:install -w @dobleuno/server
 
+      # El seed corre después de pgvector: el trigger kb_chunks_embedding_sync
+      # ya existe, así que cada insert llena también embedding_vec y el camino
+      # de retrieval del oráculo queda ejercitable.
+      - name: Seed KB
+        run: npm run kb:seed -w @dobleuno/server
+
       - name: Server tests
         run: npm test -w @dobleuno/server
 
