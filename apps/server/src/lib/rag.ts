@@ -100,6 +100,21 @@ interface RetrieveInput {
   expectedDims: number;
 }
 
+/**
+ * drizzle/node-postgres resuelve `db.execute()` con un QueryResult
+ * ({ rows, rowCount, command, fields }), no con un array. Otros drivers sí
+ * devuelven el array directo, así que aceptamos las dos formas.
+ *
+ * Sin esto el `Array.isArray()` de abajo daba false siempre, las dos ramas del
+ * retrieval devolvían [] y el oráculo contestaba "no tengo información
+ * suficiente" a todo, tuviera lo que tuviera la KB.
+ */
+function toRows(res: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(res)) return res as Array<Record<string, unknown>>;
+  const rows = (res as { rows?: unknown } | null)?.rows;
+  return Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
+}
+
 async function retrieveChunks(input: RetrieveInput): Promise<KBChunk[]> {
   if (!(await isDbHealthy())) return [];
 
@@ -107,7 +122,8 @@ async function retrieveChunks(input: RetrieveInput): Promise<KBChunk[]> {
   try {
     const vecLiteral = `[${input.questionVec.join(',')}]`;
     const factionFilter = input.faction ? sql`AND faction = ${input.faction}` : sql``;
-    const rows = await db.execute(sql`
+    const rows = toRows(
+      await db.execute(sql`
       SELECT id, source, ref, title, text, faction, embedding, created_at,
              embedding_vec <=> ${vecLiteral}::vector AS distance
       FROM kb_chunks
@@ -115,8 +131,9 @@ async function retrieveChunks(input: RetrieveInput): Promise<KBChunk[]> {
       ${factionFilter}
       ORDER BY embedding_vec <=> ${vecLiteral}::vector
       LIMIT ${input.limit}
-    `);
-    if (Array.isArray(rows) && rows.length > 0) {
+    `),
+    );
+    if (rows.length > 0) {
       return rows.map(rowToChunk);
     }
   } catch (err) {
@@ -132,14 +149,16 @@ async function retrieveChunks(input: RetrieveInput): Promise<KBChunk[]> {
       .map((_, i) => `embedding ILIKE '%"${i}":%'`)
       .join(' OR ');
     const factionFilter = input.faction ? sql`AND faction = ${input.faction}` : sql``;
-    const rows = await db.execute(sql`
+    const rows = toRows(
+      await db.execute(sql`
       SELECT id, source, ref, title, text, faction, embedding, created_at
       FROM kb_chunks
       WHERE (text ILIKE ${`%${input.questionVec.slice(0, 1).join('')}%`} OR ${sql.raw(terms)})
       ${factionFilter}
       LIMIT ${input.limit}
-    `);
-    if (Array.isArray(rows) && rows.length > 0) {
+    `),
+    );
+    if (rows.length > 0) {
       return rows.map(rowToChunk);
     }
   } catch (err) {
