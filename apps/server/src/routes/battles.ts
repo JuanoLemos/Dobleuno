@@ -1,6 +1,12 @@
 /**
  * Server: CRUD de batallas (game state).
- * Ola 4.
+ * Ola 4 · auth real desde Ola 10.
+ *
+ * Hasta la Ola 10 estas rutas usaban un `PLACEHOLDER_USER_ID = 'dev-user-1'`
+ * hardcodeado: no había forma de saber de quién era una batalla y todos los
+ * usuarios compartían las mismas filas. Crónicas necesita responder "¿esta
+ * batalla es tuya?" antes de dejar generar un relato, así que ahora todas las
+ * rutas exigen sesión y filtran por `req.authUser.id`.
  */
 
 import { Router } from 'express';
@@ -10,12 +16,11 @@ import { z } from 'zod';
 import { db, isDbHealthy } from '../db/client.js';
 import { lists } from '../db/schema/lists.js';
 import { battles } from '../db/schema/battles.js';
+import { requireAuth } from '../middleware/auth.js';
 import { log } from '../lib/logger.js';
 import type { BattleState } from '@dobleuno/shared';
 
 export const battlesRouter: Router = Router();
-
-const PLACEHOLDER_USER_ID = 'dev-user-1';
 
 const GamePhaseEnum = z.enum(['start', 'movement', 'magic', 'shooting', 'combat', 'end']);
 
@@ -92,7 +97,12 @@ const CreateBattleSchema = z.object({
   terrain: z.array(z.string()).optional(),
 });
 
-battlesRouter.get('/', async (_req, res) => {
+battlesRouter.get('/', requireAuth, async (req, res) => {
+  const userId = req.authUser?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
   if (!(await isDbHealthy())) {
     res.status(503).json({ error: 'Database not available' });
     return;
@@ -107,7 +117,7 @@ battlesRouter.get('/', async (_req, res) => {
         data: battles.data,
       })
       .from(battles)
-      .where(eq(battles.userId, PLACEHOLDER_USER_ID))
+      .where(eq(battles.userId, userId))
       .orderBy(desc(battles.updatedAt))
       .limit(50);
     // Flatten: caller wants {id, name, status, turn, phase, updatedAt}
@@ -124,12 +134,17 @@ battlesRouter.get('/', async (_req, res) => {
     });
     res.json({ count: summaries.length, battles: summaries });
   } catch (err) {
-    log.error('Battles list failed', { error: (err as Error).message });
+    log.error('Battles list failed', { userId, error: (err as Error).message });
     res.status(500).json({ error: 'Failed to list battles' });
   }
 });
 
-battlesRouter.post('/', async (req, res) => {
+battlesRouter.post('/', requireAuth, async (req, res) => {
+  const userId = req.authUser?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
   // Validar body primero — si es inválido, devolver 400 sin tocar DB
   const parsed = CreateBattleSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -144,14 +159,15 @@ battlesRouter.post('/', async (req, res) => {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  // Si hay listas, hidratar units
+  // Si hay listas, hidratar units. Solo listas propias: una lista ajena no se
+  // puede usar como ejército de una batalla nuestra.
   let units: BattleState['units'] = [];
   if (parsed.data.playerListId) {
-    const playerList = await loadListUnits(parsed.data.playerListId, 'player');
+    const playerList = await loadListUnits(parsed.data.playerListId, 'player', userId);
     units = units.concat(playerList);
   }
   if (parsed.data.opponentListId) {
-    const oppList = await loadListUnits(parsed.data.opponentListId, 'opponent');
+    const oppList = await loadListUnits(parsed.data.opponentListId, 'opponent', userId);
     units = units.concat(oppList);
   } else if (parsed.data.opponentArmySummary) {
     // No opponent list: just store the summary text
@@ -159,7 +175,7 @@ battlesRouter.post('/', async (req, res) => {
 
   const battle: BattleState = {
     id,
-    userId: PLACEHOLDER_USER_ID,
+    userId,
     name: parsed.data.name,
     scenario: parsed.data.scenario ?? 'Pitched Battle',
     playerListId: parsed.data.playerListId,
@@ -190,29 +206,36 @@ battlesRouter.post('/', async (req, res) => {
       .insert(battles)
       .values({
         id: battle.id,
-        userId: PLACEHOLDER_USER_ID,
+        userId,
         name: battle.name,
         status: battle.status,
         data: battle,
       })
       .returning();
+    log.info('Battle created', { userId, battleId: id });
     res.status(201).json({ battle: row });
   } catch (err) {
-    log.error('Battle create failed', { error: (err as Error).message });
+    log.error('Battle create failed', { userId, error: (err as Error).message });
     res.status(500).json({ error: 'Failed to create battle' });
   }
 });
 
-battlesRouter.get('/:id', async (req, res) => {
+battlesRouter.get('/:id', requireAuth, async (req, res) => {
+  const userId = req.authUser?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
   if (!(await isDbHealthy())) {
     res.status(503).json({ error: 'Database not available' });
     return;
   }
+  const battleId = req.params.id as string;
   try {
     const [row] = await db
       .select()
       .from(battles)
-      .where(and(eq(battles.id, req.params.id), eq(battles.userId, PLACEHOLDER_USER_ID)))
+      .where(and(eq(battles.id, battleId), eq(battles.userId, userId)))
       .limit(1);
     if (!row) {
       res.status(404).json({ error: 'Battle not found' });
@@ -220,12 +243,17 @@ battlesRouter.get('/:id', async (req, res) => {
     }
     res.json(row);
   } catch (err) {
-    log.error('Battle fetch failed', { error: (err as Error).message });
+    log.error('Battle fetch failed', { userId, error: (err as Error).message });
     res.status(500).json({ error: 'Failed to fetch battle' });
   }
 });
 
-battlesRouter.patch('/:id', async (req, res) => {
+battlesRouter.patch('/:id', requireAuth, async (req, res) => {
+  const userId = req.authUser?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
   // Validar body primero
   const parsed = BattleStateSchema.partial().safeParse(req.body);
   if (!parsed.success) {
@@ -236,11 +264,12 @@ battlesRouter.patch('/:id', async (req, res) => {
     res.status(503).json({ error: 'Database not available' });
     return;
   }
+  const battleId = req.params.id as string;
   try {
     const [current] = await db
       .select()
       .from(battles)
-      .where(and(eq(battles.id, req.params.id), eq(battles.userId, PLACEHOLDER_USER_ID)))
+      .where(and(eq(battles.id, battleId), eq(battles.userId, userId)))
       .limit(1);
     if (!current) {
       res.status(404).json({ error: 'Battle not found' });
@@ -261,38 +290,53 @@ battlesRouter.patch('/:id', async (req, res) => {
         data: merged,
         updatedAt: new Date(merged.updatedAt),
       })
-      .where(eq(battles.id, req.params.id))
+      .where(eq(battles.id, battleId))
       .returning();
     res.json({ battle: row });
   } catch (err) {
-    log.error('Battle update failed', { error: (err as Error).message });
+    log.error('Battle update failed', { userId, error: (err as Error).message });
     res.status(500).json({ error: 'Failed to update battle' });
   }
 });
 
-battlesRouter.delete('/:id', async (req, res) => {
+battlesRouter.delete('/:id', requireAuth, async (req, res) => {
+  const userId = req.authUser?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
   if (!(await isDbHealthy())) {
     res.status(503).json({ error: 'Database not available' });
     return;
   }
+  const battleId = req.params.id as string;
   try {
     await db
       .delete(battles)
-      .where(and(eq(battles.id, req.params.id), eq(battles.userId, PLACEHOLDER_USER_ID)));
+      .where(and(eq(battles.id, battleId), eq(battles.userId, userId)));
+    log.info('Battle deleted', { userId, battleId: battleId });
     res.status(204).end();
   } catch (err) {
-    log.error('Battle delete failed', { error: (err as Error).message });
+    log.error('Battle delete failed', { userId, error: (err as Error).message });
     res.status(500).json({ error: 'Failed to delete battle' });
   }
 });
 
-/** Carga los units de una list como battle units. */
+/**
+ * Carga los units de una list como battle units.
+ * Solo carga listas del propio usuario: una lista ajena devuelve [].
+ */
 async function loadListUnits(
   listId: string,
-  faction: 'player' | 'opponent'
+  faction: 'player' | 'opponent',
+  userId: string,
 ): Promise<BattleState['units']> {
   try {
-    const [row] = await db.select().from(lists).where(eq(lists.id, listId)).limit(1);
+    const [row] = await db
+      .select()
+      .from(lists)
+      .where(and(eq(lists.id, listId), eq(lists.userId, userId)))
+      .limit(1);
     if (!row) return [];
     const list = row.data;
     return list.units.map((u) => ({

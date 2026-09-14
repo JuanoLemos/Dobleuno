@@ -75,11 +75,19 @@ export function BattleEdit() {
     }
   }
 
-  async function saveBattle(): Promise<void> {
-    if (!battle) return;
+  /**
+   * Persiste el state de la batalla.
+   *
+   * Recibe el state por parámetro en vez de leerlo de la clausura: `setBattle`
+   * es asíncrono, así que un llamador que acaba de mutar (endBattle) tiene el
+   * objeto nuevo en la mano pero `battle` todavía es el viejo.
+   */
+  async function saveBattle(next?: BattleState): Promise<void> {
+    const target = next ?? battle;
+    if (!target) return;
     setSaving(true);
     try {
-      await battlesApi.update(battle.id, battle);
+      await battlesApi.update(target.id, target);
       showToast('Batalla guardada', 'success');
     } catch (err) {
       showToast('Error: ' + (err as Error).message, 'error');
@@ -126,16 +134,25 @@ export function BattleEdit() {
     setBattle({ ...battle, units: battle.units.map((x) => (x.id === u.id ? u : x)) });
   }
 
-  function endBattle(winner: 'player' | 'opponent' | 'draw'): void {
+  /**
+   * Termina la batalla y la persiste en el mismo acto.
+   *
+   * El guardado no es opcional: Crónicas (Ola 10) arranca desde las batallas
+   * con `status: 'finished'` en la DB. Hasta la Ola 10 esto solo mutaba el
+   * state local, así que quien terminaba una partida y navegaba sin apretar
+   * "Guardar" la perdía como terminada.
+   */
+  async function endBattle(winner: 'player' | 'opponent' | 'draw'): Promise<void> {
     if (!battle) return;
-    setBattle({
+    const finished: BattleState = {
       ...battle,
       status: 'finished',
       winner,
       finishedAt: new Date().toISOString(),
       log: [makeLog(battle.turn, battle.phase, `Batalla terminada. Ganador: ${winner}`, 'system'), ...battle.log],
-    });
-    showToast(`Batalla terminada. Ganador: ${winner}`, 'success');
+    };
+    setBattle(finished);
+    await saveBattle(finished);
   }
 
   return (
@@ -152,7 +169,7 @@ export function BattleEdit() {
             {battle.scenario} · {stats?.totalModels ?? 0} modelos en mesa
           </p>
         </div>
-        <Button variant="primary" size="sm" onClick={saveBattle} loading={saving}>
+        <Button variant="primary" size="sm" onClick={() => void saveBattle()} loading={saving}>
           <Save size={14} /> Guardar
         </Button>
       </div>
@@ -210,13 +227,13 @@ export function BattleEdit() {
             Terminar batalla
           </h3>
           <div className="grid grid-cols-3 gap-2">
-            <Button size="sm" variant="primary" onClick={() => endBattle('player')}>
+            <Button size="sm" variant="primary" onClick={() => void endBattle('player')}>
               <Trophy size={12} /> Victoria
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => endBattle('draw')}>
+            <Button size="sm" variant="secondary" onClick={() => void endBattle('draw')}>
               <Swords size={12} /> Empate
             </Button>
-            <Button size="sm" variant="danger" onClick={() => endBattle('opponent')}>
+            <Button size="sm" variant="danger" onClick={() => void endBattle('opponent')}>
               Derrota
             </Button>
           </div>

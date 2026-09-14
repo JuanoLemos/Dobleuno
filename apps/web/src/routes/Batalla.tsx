@@ -9,6 +9,7 @@ import { Plus, Swords, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/Button.js';
 import { Card } from '../components/ui/Card.js';
 import { battlesApi } from '../lib/battles-api.js';
+import { authClient } from '../lib/auth-client.js';
 import { useUIStore } from '../lib/store.js';
 import { PHASE_LABELS } from '../lib/battle-engine.js';
 
@@ -16,9 +17,17 @@ export function Batalla() {
   const [battles, setBattles] = useState<Array<{ id: string; name: string; status: string; turn: number; phase: string }>>([]);
   const [loading, setLoading] = useState(true);
   const showToast = useUIStore((s) => s.showToast);
+  const session = authClient.useSession();
+  const isLoggedIn = Boolean(session.data?.user);
 
   useEffect(() => {
     let cancelled = false;
+    // Desde la Ola 10 /api/battles exige sesión: sin login no hay nada que traer.
+    if (!isLoggedIn) {
+      setBattles([]);
+      setLoading(false);
+      return;
+    }
     void (async () => {
       try {
         const res = await battlesApi.list();
@@ -32,7 +41,7 @@ export function Batalla() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isLoggedIn]);
 
   async function remove(id: string): Promise<void> {
     if (!window.confirm('¿Eliminar batalla?')) return;
@@ -61,6 +70,15 @@ export function Batalla() {
 
       {loading ? (
         <p className="text-sm text-parchment-300">Cargando…</p>
+      ) : !isLoggedIn ? (
+        <Card>
+          <p className="text-sm text-parchment-200">
+            <Link to="/login" className="text-bronze-400 underline-offset-4 hover:underline">
+              Ingresá
+            </Link>{' '}
+            para ver y registrar tus batallas.
+          </p>
+        </Card>
       ) : battles.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 py-8 text-center">
