@@ -51,6 +51,11 @@ services:
       # Sin este volumen, cada restart del container pierde el cache y el próximo
       # sync re-descarga todo (lento y anti-rate-limit).
       - dobleuno-kbdata:/app/data
+      # Ola 10 — Fotos de las crónicas. Volumen aparte del de la KB a propósito:
+      # la KB es cache regenerable (npm run kb:rebuild la reconstruye), las fotos
+      # son dato de usuario irremplazable. Si comparten volumen, el día que
+      # alguien lo borre para forzar un re-sync se lleva puestas las fotos.
+      - dobleuno-uploads:/app/uploads
     ports:
       - '3000:3000'
     # Si querés servir la web también desde el server, montá el dist:
@@ -62,4 +67,6 @@ volumes:
   dobleuno-pgdata:
     driver: local
   dobleuno-kbdata:
+    driver: local
+  dobleuno-uploads:
     driver: local

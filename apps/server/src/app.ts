@@ -21,6 +21,8 @@ import { clubRouter } from './routes/club.js';
 import { mesasRouter } from './routes/mesas.js';
 import { sesionesRouter } from './routes/sesiones.js';
 import { reservasRouter } from './routes/reservas.js';
+import { cronicasRouter } from './routes/cronicas.js';
+import { cronicasDir } from './lib/uploads.js';
 
 export function createApp(): Express {
   const app = express();
@@ -53,9 +55,31 @@ export function createApp(): Express {
   app.use('/api/club', clubRouter);
   app.use('/api/mesas', mesasRouter);
   app.use('/api/sesiones', sesionesRouter);
+  app.use('/api/cronicas', cronicasRouter);
   app.use('/api', reservasRouter);
   app.use('/api', accountRouter);
   app.use('/api', rulesRouter);
+
+  // Ola 10 — Fotos de las crónicas.
+  //
+  // Va bajo /api a propósito: el SPA fallback de abajo captura todo lo que no
+  // empiece con /api, así que un /media suelto terminaría devolviendo el
+  // index.html en cuanto cambie el orden de los app.use.
+  //
+  // Autorización por capability URL: el filename es un UUID v4 no adivinable y
+  // el permiso se aplica a qué URLs ve cada uno (GET /api/cronicas filtra por
+  // dueño y visibilidad), no a los bytes. Ver ADR-010.
+  app.use(
+    '/api/media/cronicas',
+    express.static(cronicasDir(), {
+      index: false,
+      dotfiles: 'deny',
+      fallthrough: false,
+      // El contenido es inmutable: cada archivo tiene su propio UUID.
+      immutable: true,
+      maxAge: '365d',
+    }),
+  );
 
   // Ola 11 — Servir el cliente React (Vite build) desde el mismo server.
   // En dev local, el dist vive en `apps/web/dist` (relativo a este archivo).

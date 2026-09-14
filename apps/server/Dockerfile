@@ -54,6 +54,13 @@ COPY --from=build /app/package.json ./package.json
 
 # Crear usuario no-root por seguridad
 RUN addgroup -g 1001 -S nodejs && adduser -S dobleuno -u 1001 -G nodejs
+
+# Ola 10 — Los directorios de datos tienen que existir Y ser del usuario que
+# corre el proceso ANTES de que Docker cree los volúmenes: un volumen nombrado
+# hereda dueño y permisos del path dentro de la imagen. Si el path no existe,
+# Docker lo crea root:root y el server (uid 1001) no puede escribir.
+RUN mkdir -p /app/uploads/cronicas /app/data && chown -R dobleuno:nodejs /app/uploads /app/data
+
 USER dobleuno
 
 EXPOSE 3000
