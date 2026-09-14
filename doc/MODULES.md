@@ -30,7 +30,7 @@ Dobleuno = **un solo sitio** con tabs/módulos. La landing pública introduce el
 | 2 | **Armybuilder** (listas) | Ejércitos | ✅ Funciona en `apps/web/` | React 18 + Zustand + Dexie | Construir listas de ejército. Fork de nthiebes/old-world-builder. Validación de composición, save/load. |
 | 3 | **Home del club** (info básica) | (landing `/`) | 🆕 Falta | React + Admin-editable | Nombre, dirección, horarios, contacto, redes. Una sola pantalla, configurable. |
 | 4 | **Calendar multi-mesa** | Mesas | ✅ Ola 9 (v1.0.0) | React + Express API | Admin publica sesiones. Jugadores reservan mesa específica + fecha + formato (2000/2500/Open). Anti-doble-booking por user y por cupo. |
-| 5 | **Galería + AI battle stories** | Crónicas | 🆕 Falta | React + S3-compatible + DeepSeek | Subir fotos. Por cada batalla terminada, generar story con IA. Las fotos enriquecen el story. |
+| 5 | **Galería + AI battle stories** | Crónicas | ✅ Ola 10 (v1.1.0) | React + disco local + DeepSeek | Por cada batalla terminada, un relato generado con IA y anclado a lo que registró el tracker. Fotos de la partida, privadas o publicadas al club. |
 
 ## Decisiones arquitectónicas locked (sesión 2026-07-10)
 
@@ -197,11 +197,13 @@ type Reserva = {
 
 ### Módulo 5 — Crónicas (galería + stories)
 
-**Scope Ola 10:**
-- Storage: local por ahora (uploads en `apps/server/uploads/`), S3-compatible después
-- `apps/server/src/routes/chronicles.ts` con upload + generate-story
-- `apps/web/src/routes/Chronicles.tsx` con galería + detalle de batalla
-- DeepSeek integration: `apps/server/src/lib/story-gen.ts`
+**Entregado en Ola 10 (v1.1.0).** El naming quedó en español, como el resto del código de
+producto desde Ola 9: `Cronicas.tsx`, `cronicas.ts`, tablas `cronicas` / `cronica_fotos`.
+
+- Storage: disco local en `UPLOADS_DIR` (volumen `dobleuno-uploads`), S3 después
+- `apps/server/src/routes/cronicas.ts` — CRUD + fotos + generar
+- `apps/server/src/lib/{uploads,story-gen}.ts` — storage y pipeline del relato
+- `apps/web/src/routes/{Cronicas,CronicaDetalle}.tsx` — galería y detalle
 
 **Flujo:**
 1. Usuario termina batalla → "Guardar batalla" → resultado persiste
@@ -212,8 +214,9 @@ type Reserva = {
 
 **Fotos:**
 - Upload en batalla terminada o después
-- `battle.photos: string[]` (URLs)
-- Segunda generación de story con fotos: input multimodal a DeepSeek
+- Tabla `cronica_fotos` (no `battle.photos`: el PATCH del tracker reescribe el jsonb entero y
+  pisaría las fotos subidas en paralelo — ver ADR-010)
+- Input multimodal con fotos: **depende de cambiar de modelo**, `deepseek-chat` no es multimodal
 
 **Criterio de done:** batalla terminada → "Generar crónica" → story legible y coherente con el resultado.
 
@@ -281,9 +284,9 @@ Dobleuno/
 
 ## Pendientes / Incógnitas abiertas
 
-- [ ] Storage para fotos (Ola 10): local por ahora, S3-compatible después
+- [x] Storage para fotos (Ola 10): disco local con volumen propio. S3 queda para después (ADR-010)
 - [ ] Hosting unificado (Ola 12): un deploy o dos coordinados
-- [ ] Tono del story IA (Ola 10): épico / humor / neutro — preguntar antes de implementar
+- [x] Tono del story IA (Ola 10): selector de tres — cronista (default), épico, parte de batalla
 - [ ] ¿Calendar tiene recurrencia automática? (NO en MVP — admin publica cada vez)
 - [ ] ¿Fotos requieren moderación? (NO en MVP — club chico, confianza)
 - [ ] ¿Multi-idioma del club? (NO en MVP — español rioplatense)

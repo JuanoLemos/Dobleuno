@@ -11,6 +11,34 @@ Cada versión lista los cambios técnicos. Donde existe, se anida abajo la **bit
 - Walkthrough de la sesión de v1.0.3 (`doc/arch/walkthrough/`) + su línea en la bitácora. El
   ciclo de `/CBP` pide registro por sesión salvo en el camino `commit`; el trabajo de SISTEMA.md
   se liberó por ese camino y quedó sin registrar.
+- **Ola 10 — Crónicas** (ADR-010): el relato de una batalla terminada, generado con DeepSeek,
+  más una galería de fotos de la partida.
+  - Tablas `cronicas` y `cronica_fotos` (migración `0004`), con visibilidad privada/pública
+    elegida por el autor y tono `cronista` | `epico` | `sobrio`.
+  - `lib/story-gen.ts` — el modelo ancla cada afirmación con `[u:N]`/`[h:N]` y el server valida
+    cada marcador contra la partida real, borrando del texto los inventados. Si alucina más de
+    dos nombres de unidad reintenta una vez; si reincide, guarda con los avisos visibles.
+  - `prompts/cronica.ts` — system prompt propio y versionado: el del oráculo prohíbe narrar.
+  - `lib/uploads.ts` — primer storage de archivos de usuario del proyecto: tipo por magic bytes,
+    nombre `<uuid>.<ext>`, sin SVG, 8 MB por foto y 12 por crónica.
+  - Fotos servidas con `express.static` bajo `/api/media/cronicas` (capability URL) y volumen
+    Docker `dobleuno-uploads`, separado del de la KB.
+  - Cliente: galería con filtro mías/del club, detalle en ruta propia, modal con selector de
+    tono, y downscale de las fotos en el browser antes de subirlas.
+  - Tope de 5 generaciones por crónica más cooldown de 30s por usuario. Es el primer endpoint
+    LLM del repo con freno.
+
+### Fixed
+- **`/api/battles` y `/api/lists` no tenían auth**: usaban un `PLACEHOLDER_USER_ID = 'dev-user-1'`
+  hardcodeado, así que todos los usuarios compartían las mismas filas y cualquiera veía (y
+  borraba) las listas y batallas de los demás. Ahora exigen sesión y filtran por `req.authUser.id`.
+- **`endBattle()` no persistía**: solo mutaba el state local, así que quien terminaba una partida
+  y navegaba sin apretar "Guardar" no dejaba ninguna fila con `status: 'finished'` — y la galería
+  de Crónicas hubiera arrancado vacía para siempre.
+- `lists.ts`: `ensureDb()` hacía `if (!isDbHealthy())` sobre una función async. Una Promise
+  siempre es truthy, así que el 503 era inalcanzable.
+- `Batalla.tsx` se comía el 401 en un `catch` vacío: un anónimo veía "Sin batallas en curso" en
+  vez del prompt de login.
 
 ---
 

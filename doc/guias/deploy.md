@@ -371,3 +371,16 @@ docker compose exec postgres pg_isready -U dobleuno
 - [ ] Agregar Sentry o equivalente para error tracking.
 - [ ] Migrar a Postgres gestionado (Hetzner Managed DB o Supabase) si el VPS se queda corto.
 - [ ] CDN para assets estáticos del cliente (Cloudflare R2 o Bunny CDN).
+
+## Volumen de fotos (Ola 10+)
+
+Las fotos de las crónicas viven en el volumen `dobleuno-uploads`, montado en `/app/uploads`. Va separado de `dobleuno-kbdata` a propósito: la KB es cache regenerable (`npm run kb:rebuild` la reconstruye), las fotos son dato de usuario irremplazable.
+
+**Entra en el backup.** Un `docker volume rm dobleuno-uploads` se lleva las fotos del club y no hay de dónde recuperarlas:
+
+```bash
+docker run --rm -v dobleuno-uploads:/data -v "$PWD":/backup alpine \
+  tar czf /backup/uploads-$(date +%F).tar.gz -C /data .
+```
+
+Si el server arranca y no puede escribir en `/app/uploads`, el síntoma es un 500 al subir una foto con `EACCES` en el log. Casi siempre es que el volumen se creó antes de que la imagen tuviera el directorio: el `chown` del Dockerfile corre en build, y Docker copia el dueño del path al inicializar el volumen. Se arregla recreando el volumen con la imagen ya actualizada.

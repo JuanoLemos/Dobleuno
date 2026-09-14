@@ -39,7 +39,7 @@
       "template_version": "1.2.0"
     },
     "doc/arch/ADR_SUMMARY.md": {
-      "sha256": "c2e90e1772899fa8960a02c1135494091c0ed0be71511460b409baf4e5745d14",
+      "sha256": "50933e7117836e140e9aacd46f510ed7ceb1263f03b87cb99343ac60a680a445",
       "template_sha256": "0813a7a7d75a382a73ef97cfcf872d7c79be72bd7fbd850d51623bf7aa25d286",
       "origen": "override",
       "synced_at": "2026-09-14",
@@ -70,7 +70,7 @@
       "synced_at": "2026-09-14"
     },
     "doc/arch/bitacora.md": {
-      "sha256": "043e1dd1092d9caf00f0c6b1d95f618528942e1f46d25bdb7f863423783d5058",
+      "sha256": "7ae6ce342df5e1ac85a8f1c14b91f6e6dd0ec687285e7c5124cdaa07274ae692",
       "template_sha256": "daaacfdfc6b07b4b2b8fd08dbc0bb9ce24c51fc90b18e6b459391ef35447ac5f",
       "origen": "override",
       "synced_at": "2026-09-14",

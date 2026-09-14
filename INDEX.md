@@ -48,13 +48,14 @@ vía `diligencia-lock.json`; las de dominio (TOW) son del proyecto.
 
 | Archivo | Versión | Última actualización | Resumen (L0) |
 |---|---|---|---|
-| doc/arch/SISTEMA.md | v1.0.2 | 2026-09-14 | Arquitectura, stack, endpoints, pipeline del oráculo |
+| doc/arch/SISTEMA.md | v1.1.0 | 2026-09-14 | Arquitectura, stack, endpoints, pipeline del oráculo |
 | doc/arch/ADR_SUMMARY.md | template | 2026-09-14 | Índice de decisiones arquitectónicas |
 | doc/arch/ADR-005-llm-provider.md | — | 2026-07-09 | DeepSeek como proveedor LLM |
 | doc/arch/ADR-006-react-single-source.md | — | 2026-07-10 | React app como single source of truth |
 | doc/arch/ADR-007-tabs-naming.md | — | 2026-07-10 | Naming de módulos en español |
 | doc/arch/ADR-008-club-info-model.md | — | 2026-07-10 | Modelo de datos del club (single-row) |
 | doc/arch/ADR-009-calendar-data-model.md | — | 2026-07-10 | Mesas / sesiones / reservas |
+| doc/arch/ADR-010-cronicas-data-model.md | — | 2026-09-14 | Crónicas: datos, storage y generación |
 | doc/arch/bugs.md | template | 2026-09-14 | Bug tracker (P1/P2/P3) |
 | doc/arch/incidentes.md | template | 2026-09-14 | Incidentes runtime y crashes |
 | doc/arch/backups.md | template | 2026-09-14 | Estado de backups y pruning |

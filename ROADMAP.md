@@ -1,12 +1,12 @@
 # Dobleuno — Roadmap
 
-> Roadmap vivo. Se actualiza al cerrar cada ola. Última: 2026-09-13 (v1.0.0).
+> Roadmap vivo. Se actualiza al cerrar cada ola. Última: 2026-09-14 (v1.1.0).
 >
 > **Mapa de módulos visibles:** [`MODULES.md`](doc/MODULES.md). El "qué ve el usuario" vive ahí. Este doc es el "qué se construye" (técnico).
 
 ## Estado actual
 
-**Ola 8 — Home del club + TabShell** ✅ cerrada (v0.9.0). **Ola 9 — Mesas** ✅ cerrada (v1.0.0).
+**Ola 9 — Mesas** ✅ cerrada (v1.0.0). **Ola 10 — Crónicas** ✅ cerrada (v1.1.0).
 
 El release v1.0.0 se cerró el 2026-09-13, arrastrando también trabajo temprano de Olas 10–11 que
 estaba en el árbol sin commitear (Home cream editorial y SPA fallback del server). Ver CHANGELOG.
@@ -37,16 +37,16 @@ estaba en el árbol sin commitear (Home cream editorial y SPA fallback del serve
 | 7.1 | KB sync admin (post-MVP) | ✅ Cerrado | 1-2 | `/api/admin/kb/sync` background + kb-ingest + cache docker + is_admin | v0.8.0 |
 | **8** | **Home del club + shell con tabs** | ✅ Cerrado | 2-3 | Landing pública con info del club + TabShell con tabs (Codex/Ejércitos/Mesas/Crónicas) | v0.9.0 |
 | **9** | **Mesas (calendar multi-mesa)** | ✅ Cerrado | 3-4 | API + UI admin + UI jugador + roles + anti-doble-booking | v1.0.0 |
-| **10** | **Crónicas (galería + AI stories)** | ⏳ Pendiente | 3-4 | Upload fotos + DeepSeek story-gen + vista galería | v1.1.0 |
+| **10** | **Crónicas (galería + AI stories)** | ✅ Cerrado | 3-4 | Upload fotos + DeepSeek story-gen + galería con visibilidad | v1.1.0 |
 | **11** | **Migración Codex portal → app** | ⏳ Pendiente | 2-3 | Portear páginas Astro a React, mantener SEO si posible | v1.2.0 |
 | **12** | **Polish + deploy consolidado** | ⏳ Pendiente | 2-3 | Deploy unificado (app + portal + landing) | v2.0.0 |
 | 7+ | Fase 2 | ⏳ Diferido | +3-4 sem | Historial, stats agregadas, coaching, +facciones, multiplayer | — |
 
-## Métricas acumuladas (al cierre de v1.0.0)
+## Métricas acumuladas (al cierre de v1.1.0)
 
 | Métrica | Valor |
 |---|---|
-| Tests | 130 (104 server + 26 web) + 11 live skip |
+| Tests | 186 (153 server + 33 web) + 11 live skip |
 | Lint errors | 0 |
 | Typecheck errors | 0 |
 | Bundle web (main gzipped) | 180KB + vendor 53KB |
@@ -54,8 +54,8 @@ estaba en el árbol sin commitear (Home cream editorial y SPA fallback del serve
 | Bundle Reglas (gzipped) | 37.16KB (incluye OraclePanel) — sin re-medir post-v0.8.0 |
 | PWA precache | 565KB, 33 entries (offline-first funcional) |
 | Chunks en KB seed | 23 (9 unidades × 2 chunks + 5 reglas básicas) — verificado en CI; re-sync admin puede ampliar |
-| Endpoints API | `/api/health`, `/api/auth`, `/api/lists`, `/api/battles`, `/api/ask`, `/api/admin/kb/{sync,status,logs}`, `/api/club`, `/api/mesas`, `/api/sesiones`, `/api/mis-reservas` + `/api` (rulesRouter, account) |
-| DB tables | `user`, `session`, `account`, `verification`, `lists`, `battles`, `units`, `special_rules`, `magic_items`, `scenarios`, `ingest_log`, `kb_chunks` (+ columna `users.is_admin` en v0.8.0, + `club_info` en v0.9.0, + `mesas`, `sesiones`, `reservas` en v1.0.0) |
+| Endpoints API | `/api/health`, `/api/auth`, `/api/lists`, `/api/battles`, `/api/ask`, `/api/admin/kb/{sync,status,logs}`, `/api/club`, `/api/mesas`, `/api/sesiones`, `/api/mis-reservas`, `/api/cronicas` (+ `/fotos`, `/generar`), `/api/media/cronicas` + `/api` (rulesRouter, account) |
+| DB tables | `user`, `session`, `account`, `verification`, `lists`, `battles`, `units`, `special_rules`, `magic_items`, `scenarios`, `ingest_log`, `kb_chunks` (+ columna `users.is_admin` en v0.8.0, + `club_info` en v0.9.0, + `mesas`, `sesiones`, `reservas` en v1.0.0, + `cronicas`, `cronica_fotos` en v1.1.0) |
 | Mirror KB | Volumen `dobleuno-kbdata` (persiste entre reinicios), job queue in-memory |
 | Brand kit | 9 piezas de arte en `apps/web/public/brand/` + `portal/public/brand/` (~33 MB) |
 

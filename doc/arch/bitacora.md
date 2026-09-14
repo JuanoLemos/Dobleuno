@@ -9,6 +9,7 @@ El detalle de cada sesión vive en `doc/arch/walkthrough/`.
 |---|---|---|---|---|
 | 2026-09-14 | `/adaptar` + `/CBP full` | Adaptación a Diligencia (Flujo B) | [walkthrough](walkthrough/2026-09-14_0100_CBP-full_adaptacion-diligencia.md) | v1.0.2 |
 | 2026-09-14 | `/CBP commit` | SISTEMA.md al día + lista de ADRs corregida | [walkthrough](walkthrough/2026-09-14_0200_CBP-commit_sistema-al-dia.md) | v1.0.3 |
+| 2026-09-14 | Ola 10 | Crónicas: relato con IA + galería de fotos | [walkthrough](walkthrough/2026-09-14_0400_ola-10_cronicas.md) | v1.1.0 |
 
 ---
 

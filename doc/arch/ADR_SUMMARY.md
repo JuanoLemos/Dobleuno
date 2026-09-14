@@ -41,3 +41,7 @@ Usar [adr-template.md](adr-template.md) para nuevas decisiones.
 
 - `doc/arch/adr-template.md` — template para nuevas ADRs
 - `DILIGENCIA.md` — convención de estructura del proyecto
+
+## ADR-010 — Crónicas: modelo de datos, storage y generación
+
+**Aceptado** · 2026-09-14 · Ola 10. Tablas propias en vez de campos en `battles.data`; una crónica por batalla; visibilidad elegida por el autor; storage en disco con volumen propio y capability URLs; el relato se ancla a unidades y hitos reales y se valida en el server. Ver [ADR-010](ADR-010-cronicas-data-model.md).

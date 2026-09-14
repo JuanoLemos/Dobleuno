@@ -1,7 +1,6 @@
 # Sistema Dobleuno
 
-> Documento vivo de arquitectura. Última: 2026-09-14 (v1.0.2 — Olas 8 y 9 cerradas, proyecto
-> adaptado a Diligencia).
+> Documento vivo de arquitectura. Última: 2026-09-14 (v1.1.0 — Ola 10, Crónicas).
 
 ## Vista general
 
@@ -24,17 +23,19 @@ Un deploy = un club (single-tenant). Multi-club queda para Fase 2.
 │                          │                │ /api/lists     (CRUD, Ola 3)    │
 │ TabShell (Ola 8)         │                │ /api/battles   (CRUD, Ola 4)    │
 │  Codex · Ejércitos       │                │ /api/rules     (search, Ola 2)  │
-│  Mesas                   │                │ /api/ask       (RAG, Ola 5)     │
+│  Mesas · Crónicas        │                │ /api/ask       (RAG, Ola 5)     │
 │ Service Worker           │                │ /api/admin/kb/* (Ola 7.1)       │
 │ (offline-first)          │                │ /api/club      (Ola 8)          │
-└──────────────────────────┘                │ /api/mesas     (Ola 9)          │
-                                            │ /api/sesiones  (Ola 9)          │
-┌──────────────────────────┐                │ /api/mis-reservas (Ola 9)       │
-│ Portal estático (Astro)  │                │ + account (perfil de usuario)   │
-│ Reglamento traducido     │                │                                 │
-│ /reglas · /items · /sobre│                │ SPA fallback: sirve             │
-│ Sin runtime, sin auth    │                │ apps/web/dist si existe         │
-└──────────────────────────┘                │ (WEB_DIST_DIR configurable)     │
+│                          │                │ /api/mesas     (Ola 9)          │
+└──────────────────────────┘                │ /api/sesiones  (Ola 9)          │
+                                            │ /api/mis-reservas (Ola 9)       │
+┌──────────────────────────┐                │ /api/cronicas  (Ola 10)         │
+│ Portal estático (Astro)  │                │ /api/media/cronicas (estático)  │
+│ Reglamento traducido     │                │ + account (perfil de usuario)   │
+│ /reglas · /items · /sobre│                │                                 │
+│ Sin runtime, sin auth    │                │ SPA fallback: sirve             │
+└──────────────────────────┘                │ apps/web/dist si existe         │
+                                            │ (WEB_DIST_DIR configurable)     │
                                             │                                 │
                                             │ ┌──────────────────────┐        │
                                             │ │ PostgreSQL 16        │        │
@@ -52,10 +53,14 @@ Un deploy = un club (single-tenant). Multi-club queda para Fase 2.
                                             │ │ club_info   (Ola 8)  │        │
                                             │ │ mesas · sesiones ·   │        │
                                             │ │ reservas    (Ola 9)  │        │
+                                            │ │ cronicas ·           │        │
+                                            │ │ cronica_fotos        │        │
+                                            │ │             (Ola 10) │        │
                                             │ │                      │        │
                                             │ │ dobleuno-kbdata      │        │
-                                            │ │ (volumen Docker,     │        │
-                                            │ │  cache KB persist.)  │        │
+                                            │ │ (cache KB)           │        │
+                                            │ │ dobleuno-uploads     │        │
+                                            │ │ (fotos, Ola 10)      │        │
                                             │ └──────────────────────┘        │
                                             │                                 │
                                             │ ┌──────────────────────┐        │
@@ -145,6 +150,7 @@ reglas, backend + LLM, hosting) están en `doc/plan/PLAN.md`, no como ADR propio
 | [ADR-007](ADR-007-tabs-naming.md) | Naming de módulos en español (Codex / Ejércitos / Mesas / Crónicas) |
 | [ADR-008](ADR-008-club-info-model.md) | Modelo de datos del club: single-row, single-tenant |
 | [ADR-009](ADR-009-calendar-data-model.md) | Calendar: mesas / sesiones / reservas + anti-doble-booking |
+| [ADR-010](ADR-010-cronicas-data-model.md) | Crónicas: tablas propias, storage local con capability URLs, relato anclado a la partida |
 
 La decisión de **KB sync vía endpoint admin** (Ola 7.1) reemplazó al cron diario por un job
 queue in-memory triggereable con `POST /api/admin/kb/sync`, con cache persistente en el volumen
@@ -155,8 +161,9 @@ queue in-memory triggereable con `POST /api/admin/kb/sync`, con cache persistent
 1. **Cliente offline-first** para Listas, Batalla y Reglas. La IA requiere red.
 2. **Server stateless** salvo Postgres. Sesiones de better-auth, sin estado en memoria (salvo
    el job queue del KB sync, deliberadamente efímero).
-3. **El oráculo no inventa fuentes**: sin contexto recuperado no llama al LLM, y toda cita se
-   valida contra los chunks reales.
+3. **La IA no inventa fuentes**: sin contexto recuperado el oráculo no llama al LLM, y toda cita
+   se valida contra los chunks reales. Las crónicas siguen la misma regla con sus anclas a
+   unidades y hitos de la partida.
 4. **Brand consistency**: paleta forge/blood/bronze en la app, parchment en el portal.
 5. **Mobile-first**: 360px de ancho mínimo, touch targets ≥ 44px, tabs sticky.
 6. **TZ**: el server guarda en UTC; la UI formatea en `America/Buenos_Aires`.
@@ -165,7 +172,7 @@ queue in-memory triggereable con `POST /api/admin/kb/sync`, con cache persistent
 
 | Check | Estado |
 |---|---|
-| Tests | 141 (115 server + 26 web) + 11 live skip |
+| Tests | 186 (153 server + 33 web) + 11 live skip |
 | Lint | ESLint flat config, `--max-warnings=0` |
 | Typecheck | 3 workspaces, 0 errores |
 | CI | lint → typecheck → migraciones → pgvector → seed KB → tests → builds → artefacto |
