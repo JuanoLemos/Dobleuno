@@ -50,6 +50,12 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
+import { cargarEnvLocal } from './env-local.js';
+
+// Antes de leer nada del entorno: el .env vive en apps/server/ y este script
+// está fuera de los workspaces, así que nadie se lo carga.
+const envDesde = cargarEnvLocal();
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const DATA_PROCESSED = join(ROOT, 'data', 'processed');
@@ -60,6 +66,7 @@ const CACHE_FILE = join(DATA_TRANSLATED, '.cache.json');
 export const DATA_STAGING = join(ROOT, 'data', 'translated.tmp');
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? '';
+if (envDesde) console.log(`[translate] variables de entorno desde ${envDesde}`);
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL ?? 'deepseek-flash';
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com';
 
@@ -155,6 +162,46 @@ interface ChatResponse {
   choices: Array<{ message: { content: string }; finish_reason?: string }>;
 }
 
+/**
+ * El modelo se quedó sin presupuesto de tokens y cortó el JSON al medio.
+ *
+ * Tiene su propia clase porque es la única falla del traductor que NO se
+ * arregla reintentando: el mismo lote produce el mismo truncado siempre. La
+ * única salida es mandar menos entradas por request.
+ */
+export class ErrorDeTruncado extends Error {
+  /**
+   * Lo que sí se tradujo antes de fallar.
+   *
+   * Un lote partido puede salir a medias: tres cuartos traducidos y una
+   * entrada que no entra ni sola. Sin esto, el `catch` de arriba descarta el
+   * Map entero y esas traducciones —ya pagadas— no llegan al archivo de esta
+   * corrida, aunque queden en el cache para la próxima.
+   */
+  readonly parciales: Map<string, Traduccion>;
+
+  /**
+   * Los ids que realmente no se pudieron traducir.
+   *
+   * Se propaga desde el fondo de la recursión en vez de reconstruirse en cada
+   * nivel. Cuando el nivel de arriba anotaba "falló todo este pedazo", el log
+   * terminaba acusando a entradas que sí se habían traducido: la corrida del
+   * 2026-09-14 nombró seis reglas que estaban perfectas en el corpus final.
+   */
+  readonly ids: string[];
+
+  constructor(ids: string[] = [], parciales?: Map<string, Traduccion>) {
+    super(
+      'La respuesta se truncó por max_tokens (el razonamiento consume del ' +
+        'mismo presupuesto)' +
+        (ids.length > 0 ? `: no entran ni de a una: ${ids.join(', ')}` : '.'),
+    );
+    this.name = 'ErrorDeTruncado';
+    this.parciales = parciales ?? new Map<string, Traduccion>();
+    this.ids = ids;
+  }
+}
+
 const SYSTEM_PROMPT = `Sos un traductor profesional de manuales de Warhammer: The Old World del inglés al español rioplatense argentino. Tu trabajo es producir una traducción precisa, natural y técnica, que un jugador pueda usar en la mesa.
 
 Reglas:
@@ -206,16 +253,18 @@ async function callLlm(messages: ChatMessage[]): Promise<string> {
       // truncado: `JSON.parse` va a fallar igual, pero con un error que no
       // dice por qué. Y los modelos de razonamiento de DeepSeek descuentan los
       // tokens de pensar de este mismo `max_tokens`, así que el margen es
-      // menor de lo que parece. Se tira acá, con el motivo, y el lote
-      // reintenta.
-      if (choice?.finish_reason === 'length') {
-        throw new Error(
-          'La respuesta se truncó por max_tokens (el razonamiento consume del ' +
-            'mismo presupuesto). Bajá --batch.',
-        );
-      }
+      // menor de lo que parece.
+      //
+      // Se tira con un error propio porque NO se arregla reintentando: el
+      // mismo payload da el mismo truncado las tres veces. Lo resuelve
+      // `traducirLote` partiendo el lote al medio.
+      if (choice?.finish_reason === 'length') throw new ErrorDeTruncado();
       return choice?.message?.content ?? '';
     } catch (err) {
+      // Reintentar un truncado es pagar tres veces por la misma falla
+      // determinística. La corrida del 2026-09-14 perdió 40 lotes así: 120
+      // requests, 320 reglas sin traducir, y el pipeline abortó al validar.
+      if (err instanceof ErrorDeTruncado) throw err;
       lastErr = err as Error;
       attempt++;
       if (attempt < 3) await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
@@ -248,7 +297,7 @@ const ETIQUETA: Record<Tipo, string> = {
  * lote, tira: mejor abortar el lote y reintentar que escribir un corpus donde
  * el texto de una regla quedó bajo el nombre de otra.
  */
-async function traducirLote(
+export async function traducirLote(
   tipo: Tipo,
   lote: Traducible[],
   cache: Cache,
@@ -276,10 +325,61 @@ Devolvé un objeto JSON con la clave "entradas": un array con la MISMA cantidad 
 Entradas:
 ${JSON.stringify(payload, null, 2)}`;
 
-  const content = await callLlm([
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: userPrompt },
-  ]);
+  let content: string;
+  try {
+    content = await callLlm([
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
+    ]);
+  } catch (err) {
+    // El lote no entra en el presupuesto de tokens: se parte al medio y se
+    // reintenta cada mitad.
+    //
+    // Bajar `--batch` para toda la corrida sería pagar el caso peor en las
+    // 2500 entradas, y además no alcanza: lo que desborda no es la cantidad
+    // sino el largo del texto, y hay reglas que ocupan el presupuesto casi
+    // solas. Partir baja hasta 1 sólo donde hace falta.
+    //
+    // Sin esto, una corrida de 104 minutos terminó con 40 lotes fallidos, 384
+    // entradas en inglés dentro del corpus "traducido" y el pipeline abortando
+    // al validar — habiendo pagado igual las 2163 que sí salieron.
+    if (err instanceof ErrorDeTruncado && faltantes.length > 1) {
+      const mitad = Math.ceil(faltantes.length / 2);
+      const caidas: string[] = [];
+      // Cada mitad se intenta aunque la otra falle.
+      //
+      // Sin el try adentro del loop, una sola entrada que no entra ni sola en
+      // el presupuesto se lleva puestas a todas sus hermanas: la excepción
+      // sube por la recursión y aborta las mitades que todavía no se
+      // procesaron. Medido en la corrida del 2026-09-14: 8 lotes irrecuperables
+      // dejaron 21 reglas sin traducir, y la mayoría eran de 70 a 300
+      // caracteres — o sea daño colateral, no entradas problemáticas.
+      for (const parte of [faltantes.slice(0, mitad), faltantes.slice(mitad)]) {
+        try {
+          for (const [id, t] of await traducirLote(tipo, parte, cache, force)) {
+            resultado.set(id, t);
+          }
+        } catch (sub) {
+          if (!(sub instanceof ErrorDeTruncado)) throw sub;
+          // Lo que la mitad SÍ tradujo antes de fallar se rescata igual.
+          for (const [id, t] of sub.parciales) resultado.set(id, t);
+          // Y se anota sólo lo que de verdad no entró, no el pedazo entero:
+          // si la mitad tenía 3 y falló 1, las otras 2 están traducidas.
+          caidas.push(...(sub.ids.length > 0 ? sub.ids : parte.map((e) => e.id)));
+        }
+      }
+      // Lo que sí salió ya quedó en `cache` y en `resultado`. Se avisa igual:
+      // un lote a medias que termina en verde es el corpus con agujeros que
+      // este pipeline ya produjo una vez.
+      if (caidas.length > 0) throw new ErrorDeTruncado(caidas, resultado);
+      return resultado;
+    }
+    // Una sola entrada que no entra: se nombra, que es el único dato útil.
+    if (err instanceof ErrorDeTruncado && faltantes[0]) {
+      throw new ErrorDeTruncado([faltantes[0].id], resultado);
+    }
+    throw err;
+  }
 
   let entradas: Array<{ id?: string; nameEs?: string; textEs?: string }>;
   try {
@@ -396,6 +496,12 @@ async function traducirArchivo(
           traducciones.set(id, t);
         }
       } catch (e) {
+        // Un lote que falló a medias trae adentro lo que sí tradujo: se
+        // rescata antes de contarlo como falla, para no volver a pagarlo ni
+        // escribirlo en inglés en el archivo de esta corrida.
+        if (e instanceof ErrorDeTruncado) {
+          for (const [id, t] of e.parciales) traducciones.set(id, t);
+        }
         stats.failed++;
         stats.errors.push({ batch: `${tipo}[${lote[0]?.id}…]`, error: (e as Error).message });
       }

@@ -6,7 +6,8 @@
  *   2. parse:     data/raw/ → data/processed/       (corpus normalizado)
  *   3. validate:  corta si el corpus salió degenerado
  *   4. translate: data/processed/ → data/translated/ (LLM, cache por hash)
- *   5. validate:  corta si la traducción no tradujo
+ *   5. glosario:  unifica el nombre de cada regla en todas las citas
+ *   6. validate:  corta si la traducción no tradujo
  *
  * El paso de validación no es decorativo: entre la Ola 2 y la Ola 11 este
  * pipeline terminó con exit 0 durante dos meses escribiendo 39 entradas basura
@@ -18,6 +19,7 @@
  *   tsx scripts/rules-sync.ts --skip-translate   # sin gastar LLM
  *   tsx scripts/rules-sync.ts --kind=rule        # solo reglas
  *   tsx scripts/rules-sync.ts --rate-limit=2000  # ms entre requests
+ *   tsx scripts/rules-sync.ts --batch=4          # entradas por request al LLM
  *   tsx scripts/rules-sync.ts --force            # re-mirror + re-translate
  */
 
@@ -27,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { mirrorAll } from './mirror-tow.js';
 import { parseAll } from './parse-tow.js';
 import { translateAll, promover, DATA_STAGING } from './translate-tow.js';
+import { normalizarDirectorio } from './normalizar-glosario.js';
 import { validarCorpus, type Hallazgo } from './validate-corpus.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +45,7 @@ interface CliArgs {
   force: boolean;
   forceTranslate: boolean;
   concurrency: number;
+  batchSize: number;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -54,6 +58,11 @@ function parseArgs(argv: string[]): CliArgs {
     force: false,
     forceTranslate: false,
     concurrency: 2,
+    // Entradas por request al LLM. Estaba hardcodeado en 8 acá adentro,
+    // pisando el default del traductor y sin forma de bajarlo desde la CLI:
+    // el flag `--batch` existía en translate-tow.ts y este orquestador no lo
+    // pasaba. La corrida del 2026-09-14 perdió 40 lotes por truncado con 8.
+    batchSize: 5,
   };
   for (const arg of argv) {
     if (arg === '--skip-mirror') args.skipMirror = true;
@@ -68,6 +77,8 @@ function parseArgs(argv: string[]): CliArgs {
       args.rateLimit = Number.parseInt(arg.slice('--rate-limit='.length), 10);
     } else if (arg.startsWith('--concurrency=')) {
       args.concurrency = Number.parseInt(arg.slice('--concurrency='.length), 10);
+    } else if (arg.startsWith('--batch=')) {
+      args.batchSize = Math.max(1, Number.parseInt(arg.slice('--batch='.length), 10));
     }
   }
   return args;
@@ -105,7 +116,7 @@ async function main(): Promise<void> {
   );
 
   if (!args.skipMirror) {
-    console.log('\n[sync] PASO 1/5: mirror');
+    console.log('\n[sync] PASO 1/6: mirror');
     const t0 = Date.now();
     const stats = await mirrorAll(
       {
@@ -123,11 +134,11 @@ async function main(): Promise<void> {
     );
     if (stats.failed > 0) console.warn(`[sync] ${stats.failed} URLs fallaron. Sigo.`);
   } else {
-    console.log('\n[sync] PASO 1/5: mirror (salteado)');
+    console.log('\n[sync] PASO 1/6: mirror (salteado)');
   }
 
   if (!args.skipParse) {
-    console.log('\n[sync] PASO 2/5: parse');
+    console.log('\n[sync] PASO 2/6: parse');
     const t0 = Date.now();
     const stats = await parseAll({ kind: args.kind, verbose: false }, { silent: false });
     console.log(
@@ -135,14 +146,14 @@ async function main(): Promise<void> {
         `(${stats.rules} reglas, ${stats.items} items, ${stats.units} unidades, ${stats.failed} fallidas)`,
     );
   } else {
-    console.log('\n[sync] PASO 2/5: parse (salteado)');
+    console.log('\n[sync] PASO 2/6: parse (salteado)');
   }
 
-  console.log('\n[sync] PASO 3/5: validar corpus en inglés');
+  console.log('\n[sync] PASO 3/6: validar corpus en inglés');
   if (reportar('corpus', validarCorpus(DATA_PROCESSED))) process.exit(1);
 
   if (!args.skipTranslate) {
-    console.log('\n[sync] PASO 4/5: translate (LLM)');
+    console.log('\n[sync] PASO 4/6: translate (LLM)');
     const t0 = Date.now();
     try {
       await translateAll({
@@ -150,12 +161,33 @@ async function main(): Promise<void> {
         force: args.forceTranslate,
         concurrency: args.concurrency,
         dryRun: false,
-        batchSize: 8,
+        batchSize: args.batchSize,
       });
       console.log(`[sync] translate en ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     } catch (e) {
       console.error(`[sync] translate falló: ${(e as Error).message}`);
       process.exit(1);
+    }
+
+    // Unificar los nombres de regla ANTES de validar y de promover.
+    //
+    // La traducción va en lotes independientes, sin glosario compartido, así
+    // que una misma regla termina con un nombre en su ficha y otro distinto
+    // cada vez que otra ficha la cita: "Flaming Attacks" salió como "Ataques
+    // Ígneos" (su ficha), "Ataques Flamígeros", "Ataques de Fuego", "Ataques
+    // Llameantes", y 25 veces sin traducir. El jugador lee una en una ficha,
+    // la busca en el Codex, y no existe.
+    //
+    // Va acá y no a mano sobre data/translated/ porque los archivos finales se
+    // regeneran enteros en cada sync desde el cache, que guarda el texto crudo
+    // del LLM: una normalización manual la deshace el próximo run en silencio.
+    console.log('\n[sync] PASO 5/6: unificar glosario');
+    const glosario = normalizarDirectorio(DATA_STAGING, { aplicar: true });
+    if (glosario) {
+      console.log(
+        `[sync] ${glosario.reemplazos} citas unificadas, ` +
+          `${glosario.sinResolver} sin resolver (se reportan, no se adivinan)`,
+      );
     }
 
     // Se valida el STAGING, no el destino. Recién si pasa, se promueve.
@@ -164,15 +196,16 @@ async function main(): Promise<void> {
     // corría después: hacía exit(1) y dejaba los archivos malos en disco, donde
     // el seed los prefiere por existir. O sea que el pipeline "fallaba" y el
     // corpus roto quedaba igual listo para sembrar.
-    console.log('\n[sync] PASO 5/5: validar corpus traducido');
+    console.log('\n[sync] PASO 6/6: validar corpus traducido');
     if (reportar('traducción', validarCorpus(DATA_STAGING, { traducido: true }))) {
       console.error(`[sync] El staging queda en ${DATA_STAGING} para inspección.`);
       process.exit(1);
     }
     promover();
   } else {
-    console.log('\n[sync] PASO 4/5: translate (salteado)');
-    console.log('[sync] PASO 5/5: validar traducción (salteado)');
+    console.log('\n[sync] PASO 4/6: translate (salteado)');
+    console.log('[sync] PASO 5/6: unificar glosario (salteado)');
+    console.log('[sync] PASO 6/6: validar traducción (salteado)');
   }
 
   console.log('\n[sync] === OK ===');

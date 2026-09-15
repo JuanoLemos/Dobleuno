@@ -32,6 +32,7 @@
     "parse": "tsx scripts/parse-tow.ts",
     "translate": "tsx scripts/translate-tow.ts",
     "rules:sync": "tsx scripts/rules-sync.ts",
+    "corpus:glosario": "tsx scripts/normalizar-glosario.ts",
     "deepseek:doctor": "tsx scripts/deepseek-doctor.ts",
     "kb:rebuild": "npm run mirror && npm run parse",
     "parse:test": "vitest run"
