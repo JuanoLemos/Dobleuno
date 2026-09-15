@@ -135,13 +135,31 @@ const NODOS_CONTENEDOR = new Set([
  */
 const NODOS_LINEA = new Set(['paragraph', 'list-item', 'table-cell', 'table-header-cell']);
 
-/** Campos escalares de una entrada embebida que vale la pena mostrar. */
+/**
+ * Campos escalares de una entrada embebida que vale la pena mostrar.
+ *
+ * Las etiquetas van en INGLÉS porque esto escribe `data/processed/`, que es el
+ * corpus en inglés. Estaban en castellano —"Alcance", "Fuerza", "Penetración"—
+ * y eso metía español adentro del original: 381 entradas quedaban con perfiles
+ * mitad y mitad, del tipo
+ *
+ *     Acidic Vomit (Profile) · Alcance N/A, Fuerza 3, Penetración -1
+ *
+ * No es cosmético. Ese texto es la columna `description` de la base, la que la
+ * app muestra cuando no hay traducción —las reglas que el traductor no pudo
+ * procesar— y la que el traductor recibe como fuente. O sea que el "inglés"
+ * que ve el jugador no era inglés, y el modelo recibía un original ya
+ * contaminado con la lengua de destino.
+ *
+ * `AP` y no `Armour Piercing`: es la notación del propio reglamento en los
+ * perfiles de arma, y aparece 66 veces así en la prosa del corpus.
+ */
 const CAMPOS_EMBEBIDOS: Array<[string, string]> = [
-  ['range', 'Alcance'],
-  ['strength', 'Fuerza'],
-  ['armourPiercing', 'Penetración'],
-  ['cost', 'Costo'],
-  ['type', 'Tipo'],
+  ['range', 'Range'],
+  ['strength', 'Strength'],
+  ['armourPiercing', 'AP'],
+  ['cost', 'Cost'],
+  ['type', 'Type'],
 ];
 
 /**

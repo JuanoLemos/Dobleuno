@@ -77,6 +77,33 @@ describe('richTextToPlain', () => {
     expect(salida).toContain('-2');
   });
 
+  it('etiqueta el perfil en inglés, porque el corpus de origen es inglés', () => {
+    // Las etiquetas estaban en castellano y este archivo escribe
+    // data/processed/, que es el corpus en inglés. 381 entradas salían mitad y
+    // mitad ("Alcance N/A, Fuerza 3, Penetración -1"), y ese texto es el que
+    // la app muestra cuando no hay traducción y el que el traductor recibe
+    // como original — o sea que el modelo veía la lengua de destino adentro
+    // de la fuente.
+    const doc = documento({
+      nodeType: 'embedded-entry-block',
+      data: {
+        target: {
+          fields: {
+            name: 'Acidic Vomit (Profile)',
+            range: 'N/A',
+            strength: '3',
+            armourPiercing: '-1',
+          },
+        },
+      },
+    });
+    const salida = richTextToPlain(doc);
+    expect(salida).toContain('Range N/A');
+    expect(salida).toContain('Strength 3');
+    expect(salida).toContain('AP -1');
+    expect(salida).not.toMatch(/Alcance|Fuerza|Penetración|Costo|Tipo/);
+  });
+
   it('separa los bloques de un documento con saltos de línea', () => {
     const doc = documento(parrafo(texto('Primer párrafo.')), parrafo(texto('Segundo párrafo.')));
     expect(richTextToPlain(doc)).toBe('Primer párrafo.\nSegundo párrafo.');
