@@ -185,8 +185,9 @@ async function main(): Promise<void> {
     const glosario = normalizarDirectorio(DATA_STAGING, { aplicar: true });
     if (glosario) {
       console.log(
-        `[sync] ${glosario.reemplazos} citas unificadas, ` +
-          `${glosario.sinResolver} sin resolver (se reportan, no se adivinan)`,
+        `[sync] ${glosario.reemplazos.length} citas y ${glosario.etiquetas} perfiles ` +
+          `unificados, ${glosario.sinResolver.length} sin resolver ` +
+          `(se reportan, no se adivinan)`,
       );
     }
 

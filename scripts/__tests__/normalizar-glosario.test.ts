@@ -11,8 +11,70 @@ import {
   construirGlosario,
   normalizar,
   normalizarEntrada,
+  unificarEtiquetasDePerfil,
   type EntradaTraducida,
 } from '../normalizar-glosario.js';
+
+describe('unificarEtiquetasDePerfil', () => {
+  it('unifica el triple cuando quedó en inglés', () => {
+    const { texto, cambios } = unificarEtiquetasDePerfil(
+      'Asrai Longbow (Perfil) · Range 32", Strength S, AP - · Perforar armadura (1)',
+    );
+    expect(texto).toContain('Alcance 32", Fuerza S, AP -');
+    expect(cambios).toBe(1);
+  });
+
+  it('unifica también el caso mezclado', () => {
+    // 15 perfiles quedaron con la primera etiqueta traducida y la segunda no.
+    const { texto } = unificarEtiquetasDePerfil('X (Perfil) · Alcance Combate, Strength S+2, AP -2');
+    expect(texto).toContain('Alcance Combate, Fuerza S+2, AP -2');
+  });
+
+  it('absorbe los dos puntos que el modelo agrega', () => {
+    // 12 perfiles salieron "Alcance: Combate, Strength S, AP -1". El parser no
+    // emite esos dos puntos; los pone el modelo. Sin contemplarlos, el patrón
+    // no matcheaba justo las líneas peor formadas.
+    const { texto } = unificarEtiquetasDePerfil(
+      'Staff of Aeons (Perfil) · Alcance: Combate, Strength S+2, AP -1 · Ataques mágicos',
+    );
+    expect(texto).toContain('Alcance Combate, Fuerza S+2, AP -1');
+    expect(texto).not.toContain(':');
+  });
+
+  it('unifica también el perfil de hechizo ligado', () => {
+    const { texto } = unificarEtiquetasDePerfil(
+      'Rune of Oath & Steel · Range 24", Type Bound Spell · Dwarf mail hardens',
+    );
+    expect(texto).toContain('Alcance 24", Tipo Bound Spell');
+  });
+
+  it('no toca un perfil que ya está bien', () => {
+    const original = 'Ball & Chain (Perfil) · Alcance Combate, Fuerza S+3, AP -2';
+    const { texto, cambios } = unificarEtiquetasDePerfil(original);
+    expect(texto).toBe(original);
+    expect(cambios).toBe(0);
+  });
+
+  it('NO toca la prosa que usa las mismas palabras', () => {
+    // Esto es lo que hace que el patrón exija el triple entero. "Penetración
+    // de Armadura" y "Perforación de armadura" son traducciones de Armour
+    // Piercing en texto corrido, no etiquetas: reemplazarlas sueltas
+    // reescribiría la oración.
+    const prosa =
+      'El modelo sufre un impacto con mayor Fuerza y Penetración de Armadura, como se muestra. ' +
+      'Los modificadores de Fuerza y Perforación de armadura de una Cathayan Longsword no se aplican.';
+    const { texto, cambios } = unificarEtiquetasDePerfil(prosa);
+    expect(texto).toBe(prosa);
+    expect(cambios).toBe(0);
+  });
+
+  it('es idempotente', () => {
+    const una = unificarEtiquetasDePerfil('· Range 12", Strength 5, AP -1 ·').texto;
+    const dos = unificarEtiquetasDePerfil(una);
+    expect(dos.texto).toBe(una);
+    expect(dos.cambios).toBe(0);
+  });
+});
 
 function ficha(p: Partial<EntradaTraducida> & { id: string }): EntradaTraducida {
   return { name: '', text: '', nameEs: '', textEs: '', ...p };

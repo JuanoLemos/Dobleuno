@@ -369,6 +369,72 @@ function leer(ruta: string): EntradaTraducida[] {
   return JSON.parse(readFileSync(ruta, 'utf-8')) as EntradaTraducida[];
 }
 
+/**
+ * Unifica las etiquetas de la línea de perfil de un arma.
+ *
+ * ── Qué son y por qué las tratamos aparte ────────────────────────────────
+ *
+ * "Range", "Strength" y "AP" no salen del sitio: las escribe `parse-tow.ts`
+ * al aplanar el perfil embebido de un arma. Son estructura nuestra, no
+ * contenido. Pero viajan adentro del texto que va al traductor, así que el
+ * modelo las traduce como cualquier otra palabra — y como cada lote es
+ * independiente, las traduce distinto:
+ *
+ *     300x  Alcance / Fuerza / AP      ← lo que quedó en la mayoría
+ *      46x  Range   / Strength / AP
+ *      15x  Alcance / Strength / AP
+ *       1x  Range   / Fuerza  / AP
+ *
+ * El normalizador de glosario no las puede tocar: no hay ficha "Range" de la
+ * que sacar un canónico. Por eso van acá, con una tabla fija.
+ *
+ * ── Por qué se matchea el triple entero y no cada etiqueta suelta ────────
+ *
+ * Porque las mismas palabras son prosa legítima en otras partes del corpus:
+ *
+ *     "sufre un impacto con mayor Fuerza y Penetración de Armadura"
+ *     "los modificadores de Fuerza y Perforación de armadura de una Cathayan Longsword"
+ *
+ * Reemplazar "Penetración" suelta reescribiría esas oraciones. Exigir las tres
+ * etiquetas con sus valores y sus comas —la forma exacta que produce el
+ * parser— no aparece nunca en prosa: la prosa las une con "y", no con coma.
+ *
+ * El canónico de cada una es la forma mayoritaria, que además deja `AP`, que
+ * es la notación del reglamento en los perfiles.
+ */
+// El `:?` no es cosmético: 12 perfiles salieron como "Alcance: Combate,
+// Strength S, AP -1". El modelo agrega dos puntos que el parser no emite, y
+// sin contemplarlos el patrón no matcheaba justo las líneas que peor estaban.
+// Al absorberlos, la forma también queda igual en todo el corpus.
+const PERFIL_DE_ARMA =
+  /\b(Alcance|Range|Distancia):?(\s+[^,\n]{1,20},\s*)(Fuerza|Strength):?(\s+[^,\n]{1,15},\s*)(AP|Penetración|Perforación):?\b/g;
+
+/**
+ * El otro perfil que emite el parser: hechizos ligados, con alcance y tipo en
+ * vez de fuerza y penetración ("· Range 24", Type Bound Spell ·").
+ *
+ * Son 7 casos, 6 de ellos con la etiqueta en inglés — o sea que acá la mayoría
+ * quedó al revés que en el triple. Se unifica igual a "Alcance" y "Tipo": el
+ * campo `range` tiene que verse igual en todo el corpus, no distinto según qué
+ * campo tenga al lado.
+ */
+const PERFIL_DE_HECHIZO = /\b(Alcance|Range):?(\s+[^,\n]{1,20},\s*)(Tipo|Type):?(\s)/g;
+
+export function unificarEtiquetasDePerfil(texto: string): { texto: string; cambios: number } {
+  let cambios = 0;
+  let salida = texto.replace(PERFIL_DE_ARMA, (match, _a, valA: string, _b, valB: string) => {
+    const nuevo = `Alcance${valA}Fuerza${valB}AP`;
+    if (nuevo !== match) cambios++;
+    return nuevo;
+  });
+  salida = salida.replace(PERFIL_DE_HECHIZO, (match, _a, valA: string, _b, sep: string) => {
+    const nuevo = `Alcance${valA}Tipo${sep}`;
+    if (nuevo !== match) cambios++;
+    return nuevo;
+  });
+  return { texto: salida, cambios };
+}
+
 export interface OpcionesDirectorio {
   /** Sin esto no escribe nada: sólo reporta lo que haría. */
   aplicar?: boolean;
@@ -380,8 +446,10 @@ export interface OpcionesDirectorio {
 export interface ResumenDirectorio {
   fichas: number;
   terminos: number;
-  reemplazos: number;
-  sinResolver: number;
+  reemplazos: Reemplazo[];
+  sinResolver: SinResolver[];
+  /** Perfiles de arma cuyas etiquetas se unificaron. */
+  etiquetas: number;
 }
 
 /**
@@ -419,24 +487,33 @@ export function normalizarDirectorio(
   const glosario = construirGlosario(todas);
   log(`[glosario] ${todas.length} fichas · ${glosario.length} términos citados`);
 
-  let reemplazos = 0;
-  let sinResolver = 0;
+  const reemplazos: Reemplazo[] = [];
+  const sinResolver: SinResolver[] = [];
+  let etiquetas = 0;
   for (const [archivo, entradas] of porArchivo) {
     const r = normalizar(entradas, glosario);
-    reemplazos += r.reemplazos.length;
-    sinResolver += r.sinResolver.length;
+    reemplazos.push(...r.reemplazos);
+    sinResolver.push(...r.sinResolver);
+
+    const finales = r.entradas.map((e) => {
+      const p = unificarEtiquetasDePerfil(e.textEs ?? '');
+      etiquetas += p.cambios;
+      return p.cambios > 0 ? { ...e, textEs: p.texto } : e;
+    });
+
     if (aplicar) {
       const destino = join(dir, archivo);
       if (backup) copyFileSync(destino, `${destino}.pre-glosario`);
-      writeFileSync(destino, JSON.stringify(r.entradas, null, 2), 'utf-8');
+      writeFileSync(destino, JSON.stringify(finales, null, 2), 'utf-8');
     }
     log(
       `[glosario] ${archivo}: ${r.reemplazos.length} citas unificadas` +
         (aplicar ? '' : ' (simulado)'),
     );
   }
+  if (etiquetas > 0) log(`[glosario] ${etiquetas} perfiles de arma con etiquetas unificadas`);
 
-  return { fichas: todas.length, terminos: glosario.length, reemplazos, sinResolver };
+  return { fichas: todas.length, terminos: glosario.length, reemplazos, sinResolver, etiquetas };
 }
 
 function main(): void {
@@ -445,73 +522,49 @@ function main(): void {
   const dirArg = argv.find((a) => a.startsWith('--dir='));
   const dir = resolve(ROOT, dirArg ? dirArg.slice('--dir='.length) : join('data', 'translated'));
 
-  const presentes = ARCHIVOS.filter((a) => existsSync(join(dir, a)));
-  if (presentes.length === 0) {
-    console.error(`[glosario] No hay corpus traducido en ${dir}.`);
+  // Toda la lógica vive en `normalizarDirectorio`, que es lo que llama el
+  // pipeline. Este main sólo reporta.
+  //
+  // Antes repetía el loop entero acá, y esa copia se quedó atrás: cuando se
+  // sumó la unificación de etiquetas de perfil, el pipeline la corría y el
+  // comando suelto no. Dos caminos para el mismo trabajo divergen apenas uno
+  // de los dos cambia, y el que queda viejo no falla: hace de menos, callado.
+  const r = normalizarDirectorio(dir, { aplicar, backup: true });
+  if (!r) {
     process.exitCode = 1;
     return;
   }
 
-  // El glosario se arma con TODAS las fichas juntas: las reglas se citan entre
-  // sí y los items mágicos citan reglas, así que separarlos por archivo
-  // dejaría la mitad de las referencias cruzadas sin canónico.
-  const porArchivo = new Map<string, EntradaTraducida[]>();
-  for (const a of presentes) porArchivo.set(a, leer(join(dir, a)));
-  const todas = [...porArchivo.values()].flat();
-
-  const glosario = construirGlosario(todas);
-  console.log(`[glosario] ${todas.length} fichas · ${glosario.length} términos citados`);
-
-  let totalRe = 0;
   const porTermino = new Map<string, Map<string, number>>();
-  const sinResolverTodos: SinResolver[] = [];
-
-  for (const [archivo, entradas] of porArchivo) {
-    const r = normalizar(entradas, glosario);
-    totalRe += r.reemplazos.length;
-    sinResolverTodos.push(...r.sinResolver);
-    for (const rep of r.reemplazos) {
-      const m = porTermino.get(rep.termino) ?? new Map<string, number>();
-      m.set(`${rep.de} → ${rep.a}`, (m.get(`${rep.de} → ${rep.a}`) ?? 0) + 1);
-      porTermino.set(rep.termino, m);
-    }
-    if (aplicar) {
-      const destino = join(dir, archivo);
-      // Backup antes de escribir: `data/` está en .gitignore, así que git no
-      // es red de contención acá.
-      copyFileSync(destino, `${destino}.pre-glosario`);
-      writeFileSync(destino, JSON.stringify(r.entradas, null, 2), 'utf-8');
-      console.log(`[glosario] ${archivo}: ${r.reemplazos.length} reemplazos escritos`);
-    } else {
-      console.log(`[glosario] ${archivo}: ${r.reemplazos.length} reemplazos (simulado)`);
-    }
+  for (const rep of r.reemplazos) {
+    const m = porTermino.get(rep.termino) ?? new Map<string, number>();
+    const forma = `${rep.de} → ${rep.a}`;
+    m.set(forma, (m.get(forma) ?? 0) + 1);
+    porTermino.set(rep.termino, m);
   }
 
-  const ordenados = [...porTermino.entries()].sort(
-    (a, b) =>
-      [...b[1].values()].reduce((x, y) => x + y, 0) - [...a[1].values()].reduce((x, y) => x + y, 0),
-  );
+  const total = (formas: Map<string, number>): number =>
+    [...formas.values()].reduce((x, y) => x + y, 0);
+  const ordenados = [...porTermino.entries()].sort((a, b) => total(b[1]) - total(a[1]));
+
   console.log(`\nTérminos unificados (${ordenados.length}):\n`);
   for (const [termino, formas] of ordenados.slice(0, 40)) {
-    const total = [...formas.values()].reduce((x, y) => x + y, 0);
-    console.log(`  ${termino} — ${total} citas`);
+    console.log(`  ${termino} — ${total(formas)} citas`);
     for (const [forma, n] of [...formas.entries()].sort((a, b) => b[1] - a[1])) {
       console.log(`      ${String(n).padStart(3)}x  ${forma}`);
     }
   }
 
   const motivos = new Map<string, number>();
-  for (const s of sinResolverTodos) motivos.set(s.motivo, (motivos.get(s.motivo) ?? 0) + 1);
-  console.log(`\nSin resolver (${sinResolverTodos.length}) — se reportan, no se tocan:`);
+  for (const s of r.sinResolver) motivos.set(s.motivo, (motivos.get(s.motivo) ?? 0) + 1);
+  console.log(`\nSin resolver (${r.sinResolver.length}) — se reportan, no se tocan:`);
   for (const [m, n] of motivos) console.log(`  ${String(n).padStart(4)}  ${m}`);
 
   // Qué referencias cruzadas quedan rotas, ordenadas por cuánto duelen. Es la
   // lista de lo que este paso NO arregló, y tenerla es la diferencia entre una
   // deuda conocida y una que se descubre en la mesa.
   const porTerminoSR = new Map<string, number>();
-  for (const s of sinResolverTodos) {
-    porTerminoSR.set(s.termino, (porTerminoSR.get(s.termino) ?? 0) + 1);
-  }
+  for (const s of r.sinResolver) porTerminoSR.set(s.termino, (porTerminoSR.get(s.termino) ?? 0) + 1);
   const top = [...porTerminoSR.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15);
   if (top.length > 0) {
     console.log('\n  Los que más citas dejan sin unificar:');
@@ -519,7 +572,8 @@ function main(): void {
   }
 
   console.log(
-    `\n${totalRe} reemplazos ${aplicar ? 'aplicados' : 'simulados'}.` +
+    `\n${r.reemplazos.length} citas y ${r.etiquetas} perfiles ` +
+      `${aplicar ? 'unificados' : 'unificables'}.` +
       (aplicar ? ' Backups en *.pre-glosario' : ' Corré con --apply para escribir.'),
   );
 }
