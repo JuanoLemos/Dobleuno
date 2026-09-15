@@ -305,6 +305,7 @@ export interface CodexStats {
   rules: number;
   items: number;
   rulesTranslated: number;
+  itemsTranslated: number;
 }
 
 export async function statsDelCodex(): Promise<CodexStats | null> {

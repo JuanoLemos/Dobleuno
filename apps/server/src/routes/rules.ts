@@ -378,7 +378,7 @@ rulesRouter.get('/kb/search', async (req, res) => {
 rulesRouter.get('/kb/stats', async (_req, res) => {
   if (!(await exigirDb(res))) return;
   try {
-    const [[unidades], [reglas], [items], [traducidas]] = await Promise.all([
+    const [[unidades], [reglas], [items], [reglasEs], [itemsEs]] = await Promise.all([
       db.select({ n: sql<number>`count(*)::int` }).from(units),
       db.select({ n: sql<number>`count(*)::int` }).from(specialRules),
       db.select({ n: sql<number>`count(*)::int` }).from(magicItems),
@@ -386,13 +386,27 @@ rulesRouter.get('/kb/stats', async (_req, res) => {
         .select({ n: sql<number>`count(*)::int` })
         .from(specialRules)
         .where(sql`${specialRules.descriptionEs} is not null`),
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(magicItems)
+        .where(sql`${magicItems.descriptionEs} is not null`),
     ]);
     res.json({
       units: unidades?.n ?? 0,
       rules: reglas?.n ?? 0,
       items: items?.n ?? 0,
       /** Cuántas reglas tienen traducción: distingue "vacío" de "en inglés". */
-      rulesTranslated: traducidas?.n ?? 0,
+      rulesTranslated: reglasEs?.n ?? 0,
+      /**
+       * Lo mismo para items.
+       *
+       * Sin este número, `/sobre` sólo podía decir "traducido" o "en inglés"
+       * mirando las reglas, y el estado real del corpus no es binario: las
+       * unidades no se traducen nunca —son statlines y nombres propios— y
+       * siempre quedan reglas sueltas sin traducir. Decir "el corpus está en
+       * español" a secas era falso justamente cuando el pipeline funcionaba.
+       */
+      itemsTranslated: itemsEs?.n ?? 0,
     });
   } catch (err) {
     log.error('KB stats failed', { error: (err as Error).message });

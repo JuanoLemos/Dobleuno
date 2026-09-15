@@ -12,6 +12,64 @@ import { CodexLayout } from '../components/codex/CodexLayout.js';
 import { Sigil } from '../components/Sigil.js';
 import { statsDelCodex, type CodexStats } from '../lib/codex-api.js';
 
+/**
+ * Qué está en español y qué no, con los números de la base.
+ *
+ * Antes acá había un cartel binario: si `rulesTranslated` era 0 avisaba que
+ * todo estaba en inglés, y si no era 0 **no decía nada**. Pero el estado real
+ * del corpus nunca es binario, así que el silencio se leía como "está todo
+ * traducido" justo cuando no lo está:
+ *
+ *   · Las unidades de los 16 ejércitos no se traducen nunca, por diseño. Su
+ *     contenido son statlines y nombres propios, y la guía de traducción manda
+ *     dejarlos en inglés. El jugador entra a /ejercitos, ve inglés, y la página
+ *     que tenía que explicárselo se callaba.
+ *   · Siempre quedan reglas sueltas sin traducir: las que no entran en el
+ *     presupuesto de tokens del modelo ni de a una.
+ *
+ * Por eso dice los números en vez de un adjetivo.
+ */
+function EstadoDeTraduccion({ stats }: { stats: CodexStats }) {
+  const traducidas = stats.rulesTranslated + stats.itemsTranslated;
+
+  if (traducidas === 0) {
+    return (
+      <p className="mt-4 text-sm codex-muted">
+        El corpus está en inglés: la traducción al español es un paso aparte del pipeline y no
+        corrió sobre estos datos.
+      </p>
+    );
+  }
+
+  const faltanReglas = stats.rules - stats.rulesTranslated;
+  const faltanItems = stats.items - stats.itemsTranslated;
+  const sueltas = faltanReglas + faltanItems;
+
+  return (
+    <div className="mt-4 space-y-2 text-sm codex-muted">
+      <p>
+        <strong className="codex-accent">Reglas e items están en español rioplatense</strong> —{' '}
+        {stats.rulesTranslated} de {stats.rules} reglas y {stats.itemsTranslated} de {stats.items}{' '}
+        items. La traducción es automática y está sin revisar a mano: ante cualquier duda de
+        interpretación, el original en inglés manda.
+      </p>
+      <p>
+        <strong>Las {stats.units} unidades de los ejércitos siguen en inglés</strong>, a propósito.
+        Son statlines y nombres propios —perfiles, equipo, opciones— donde traducir el nombre de una
+        unidad o de un arma la vuelve imposible de cruzar con el reglamento oficial y con el resto
+        de la mesa.
+      </p>
+      {sueltas > 0 && (
+        <p>
+          Quedan {sueltas} entradas sin traducir ({faltanReglas} reglas, {faltanItems} items): son
+          las que no entran en el presupuesto de tokens del modelo ni de a una. Se muestran en
+          inglés.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function Sobre() {
   const [stats, setStats] = useState<CodexStats | null>(null);
 
@@ -45,12 +103,7 @@ export function Sobre() {
           </dl>
         )}
 
-        {stats && stats.rulesTranslated === 0 && (
-          <p className="mt-4 text-sm codex-muted">
-            El corpus todavía está en inglés: la traducción al español es un paso aparte del
-            pipeline y no corrió sobre estos datos.
-          </p>
-        )}
+        {stats && <EstadoDeTraduccion stats={stats} />}
 
         <h2 className="mb-3 mt-10 font-serif text-2xl">Cómo se arma</h2>
         <ol className="list-decimal space-y-2 pl-6">
@@ -71,7 +124,16 @@ export function Sobre() {
             Un validador corta el pipeline si el corpus salió degenerado. Existe porque una vez no
             estaba y nadie se enteró durante dos meses.
           </li>
-          <li>Un traductor opcional pasa reglas e items al español rioplatense.</li>
+          <li>
+            Un traductor opcional pasa reglas e items al español rioplatense. Las unidades no: ver
+            arriba.
+          </li>
+          <li>
+            Un último paso unifica el glosario. La traducción va en lotes independientes, así que
+            una misma regla especial termina con un nombre en su ficha y otro cada vez que otra
+            ficha la cita. Este paso deja uno solo —el de la ficha— para que las referencias entre
+            reglas se puedan seguir.
+          </li>
           <li>El corpus se carga en Postgres y esta app lo sirve y lo cachea en tu dispositivo.</li>
         </ol>
 
