@@ -49,14 +49,21 @@ const MIGRATIONS_DIR = join(__dirname, 'migrations');
  * El archivo se manda entero, en una sola llamada. Partirlo por `;` rompería
  * el cuerpo `$$ … $$` de plpgsql, que tiene `;` adentro.
  */
-async function aplicarPgvector(pool: pg.Pool): Promise<void> {
-  const ruta = join(MIGRATIONS_DIR, '0001_pgvector.sql');
-  if (!existsSync(ruta)) {
-    log.warn(`No se encontró ${ruta}; salteo pgvector.`);
-    return;
+const SQL_FUERA_DEL_JOURNAL: Array<[archivo: string, que: string]> = [
+  ['0001_pgvector.sql', 'pgvector: extensión, trigger e índice'],
+  ['extra_busqueda_lexica.sql', 'búsqueda léxica: columna tsv e índice GIN'],
+];
+
+async function aplicarExtras(pool: pg.Pool): Promise<void> {
+  for (const [archivo, que] of SQL_FUERA_DEL_JOURNAL) {
+    const ruta = join(MIGRATIONS_DIR, archivo);
+    if (!existsSync(ruta)) {
+      log.warn(`No se encontró ${ruta}; salteo.`);
+      continue;
+    }
+    await pool.query(readFileSync(ruta, 'utf-8'));
+    log.info(`${que}: al día`);
   }
-  await pool.query(readFileSync(ruta, 'utf-8'));
-  log.info('pgvector: extensión, trigger e índice al día');
 }
 
 async function main(): Promise<void> {
@@ -78,7 +85,7 @@ async function main(): Promise<void> {
   await migrate(drizzle(pool), { migrationsFolder: MIGRATIONS_DIR });
   log.info('Migrations complete');
 
-  await aplicarPgvector(pool);
+  await aplicarExtras(pool);
 
   await pool.end();
   process.exit(0);

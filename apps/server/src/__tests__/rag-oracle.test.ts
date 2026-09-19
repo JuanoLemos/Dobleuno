@@ -216,13 +216,19 @@ describe('Oráculo — cuando no hay contexto', () => {
     expect(createCompletion).not.toHaveBeenCalled();
   });
 
-  it('si falla la query de pgvector no hay segundo intento', async () => {
-    // Antes existía un fallback a ILIKE sobre el texto del chunk. Se borró: sin
-    // la extension instalada preferimos no responder a responder con contexto
-    // traído por un match textual arbitrario.
+  it('si falla la query del retrieval no hay segundo intento', async () => {
+    // Antes existía un fallback a ILIKE sobre el texto del chunk, y se borró
+    // con este criterio: mejor no responder que responder con contexto traído
+    // por un match textual arbitrario. El criterio sigue en pie.
+    //
+    // Lo que hay ahora NO es ese fallback: es búsqueda full-text indexada y
+    // rankeada (`ts_rank_cd`, título con peso 'A'), y es el camino principal,
+    // no un plan B. Entró porque el camino que reemplaza medía recall@5 = 0/15
+    // — ver src/eval-retrieval.ts. Y cuando no encuentra nada devuelve nada,
+    // que es exactamente lo que aquella decisión protegía.
     dbExecute.mockRejectedValue(new Error('type "vector" does not exist'));
 
-    const res = await ask({ question: '¿Y si no está instalado pgvector?' });
+    const res = await ask({ question: '¿Y si la query del retrieval revienta?' });
 
     expect(dbExecute).toHaveBeenCalledTimes(1);
     expect(res.answer).toContain('No tengo información suficiente');
@@ -232,12 +238,16 @@ describe('Oráculo — cuando no hay contexto', () => {
 });
 
 describe('Oráculo — origen del contexto', () => {
-  it('reporta fallback pgvector cuando recuperó chunks', async () => {
+  it('reporta el camino que de verdad trajo los chunks', async () => {
+    // Este test decía 'pgvector' y pasaba aunque el retrieval fuera léxico:
+    // el campo estaba hardcodeado en el return de `ask()`, así que afirmaba
+    // pgvector pasara lo que pasara. Ahora sale de `retrieveChunks`, que es
+    // el único que sabe qué camino corrió.
     llmAnswers('Con contexto. [cita:1]');
 
     const res = await ask({ question: '¿De dónde salió el contexto?' });
 
-    expect(res.fallback).toBe('pgvector');
+    expect(res.fallback).toBe('lexico');
     expect(res.provider).toBe('deterministic');
     expect(dbExecute).toHaveBeenCalledTimes(1);
   });
@@ -269,5 +279,51 @@ describe('Oráculo — errores del LLM', () => {
     await expect(ask({ question: '¿Y si el LLM no devuelve nada?' })).rejects.toThrow(
       /respuesta vacía/,
     );
+  });
+});
+
+describe('Oráculo — de dónde salen los chunks', () => {
+  /** El SQL que se le mandó a Postgres en la llamada n. */
+  function sqlDeLaLlamada(n: number): string {
+    const arg = dbExecute.mock.calls[n]?.[0] as { queryChunks?: unknown[] } | undefined;
+    return JSON.stringify(arg?.queryChunks ?? arg ?? '');
+  }
+
+  it('busca por texto, no por vector, con el provider determinístico', async () => {
+    // El provider `deterministic` hashea cada palabra a uno de 384 buckets: no
+    // es un embedding, es ruido estable. Medido con src/eval-retrieval.ts
+    // sobre 15 preguntas reales, la búsqueda por vector daba recall@5 = 0/15
+    // — ni siquiera escribiendo el nombre exacto de la regla.
+    //
+    // Y nada fallaba: 200, citas válidas a los chunks equivocados, y una
+    // respuesta cortés diciendo que no había información suficiente. Los 180
+    // tests de este repo pasaban con el oráculo devolviendo cualquier cosa.
+    //
+    // Si alguien saca `providerSemantico`, esto vuelve al ruido en silencio.
+    dbExecute.mockResolvedValue(queryResult([chunkRow()]));
+    await ask({ question: '¿cómo funciona Killing Blow?' });
+
+    const sql = sqlDeLaLlamada(0);
+    expect(sql).toContain('ts_rank_cd');
+    expect(sql).not.toContain('embedding_vec <=>');
+  });
+
+  it('no cae al vector cuando lo léxico no encuentra nada', async () => {
+    // Devolver ruido es peor que devolver nada: con 0 chunks `ask()` admite
+    // que no sabe, y con 5 chunks irrelevantes contesta convencido.
+    dbExecute.mockResolvedValue(queryResult([]));
+    const salida = await ask({ question: 'algo que no existe en el corpus' });
+
+    expect(dbExecute).toHaveBeenCalledTimes(1);
+    expect(salida.chunksUsed).toBe(0);
+    expect(salida.fallback).toBe('none');
+  });
+
+  it('le pasa la pregunta al retrieval, no sólo el vector', async () => {
+    // La búsqueda léxica necesita el texto. Si `ask()` deja de pasarlo, el
+    // retrieval se queda sin su única señal buena y devuelve vacío siempre.
+    dbExecute.mockResolvedValue(queryResult([chunkRow()]));
+    await ask({ question: 'Stubborn' });
+    expect(sqlDeLaLlamada(0)).toContain('Stubborn');
   });
 });
