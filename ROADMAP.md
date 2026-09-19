@@ -11,6 +11,11 @@
 **Ola 12 — Deploy consolidado** ✅ cerrada (v2.0.0). Con el roadmap original completo, lo que sigue
 se decide con el proyecto andando, no desde el plan de julio.
 
+**Post-v2.0.0 (2026-09-14 al 19), sin bump de versión:** el corpus se tradujo y se verificó contra
+Postgres real, y el retrieval del oráculo pasó de **0/15 a 9/15** en recall@5 — antes devolvía ruido
+con HTTP 200. Los dos arreglos salieron de medir algo que hasta entonces nadie medía: leer 20
+entradas traducidas a ojo, y `eval-retrieval.ts`. Ver CHANGELOG y `doc/arch/status-salud.md`.
+
 El release v1.0.0 se cerró el 2026-09-13, arrastrando también trabajo temprano de Olas 10–11 que
 estaba en el árbol sin commitear (Home cream editorial y SPA fallback del server). Ver CHANGELOG.
 
@@ -45,11 +50,11 @@ estaba en el árbol sin commitear (Home cream editorial y SPA fallback del serve
 | **12** | **Deploy consolidado** | ✅ Cerrado | 2-3 | Un contenedor sirve API + cliente · imagen verificada en CI · config de producción endurecida | v2.0.0 |
 | 7+ | Fase 2 | ⏳ Diferido | +3-4 sem | Historial, stats agregadas, coaching, +facciones, multiplayer | — |
 
-## Métricas acumuladas (al cierre de v2.0.0)
+## Métricas acumuladas (al 2026-09-19, post-v2.0.0)
 
 | Métrica | Valor |
 |---|---|
-| Tests | 218 (180 server + 33 web + 5 pipeline) + 11 live skip |
+| Tests | 262 (183 server + 33 web + 46 `scripts/`) + 11 live skip |
 | CI | 2 jobs: `test` (lint → typecheck → migraciones → tests → builds → bundle) y `docker` (imagen → compose → smoke → SQL) |
 | Lint errors | 0 |
 | Typecheck errors | 0 |
@@ -58,9 +63,12 @@ estaba en el árbol sin commitear (Home cream editorial y SPA fallback del serve
 | Bundle codex-api (gzipped) | 34.54KB (incluye Dexie y el OraclePanel) |
 | PWA precache | 565KB, 33 entries (offline-first funcional) |
 | Corpus | 1796 reglas · 751 items · 577 unidades (3124 páginas bajadas, 0 fallidas) |
-| Chunks en KB seed | ~3700 (1 por regla, 1 por item, 1-2 por unidad) — **sin verificar contra Postgres**, no hay Docker en la máquina del autor |
+| Traducción | Reglas e items al español rioplatense: 1795/1796 y 751/751. Las unidades quedan en inglés **por diseño** (statlines y nombres propios), y `/sobre` lo declara con esos números |
+| Glosario del corpus | Cada regla tiene UN nombre en todas las fichas que la citan (antes tenía hasta cinco). "Flaming Attacks": 89 de 93 citas coherentes, contra 4 de 31 antes del normalizador. 362 perfiles de arma y 7 de hechizo con una sola forma de etiqueta |
+| Chunks en KB seed | 3700 (1 por regla, 1 por item, 1-2 por unidad), los 3700 con `embedding_vec`. Verificado contra Postgres real (WSL), no sólo contra el exit code del seed |
+| Retrieval del oráculo | recall@5 **9/15**, recall@1 7/15, MRR 0.522 — medido por `apps/server/src/eval-retrieval.ts`. Por forma de pregunta: nombre exacto 6/6, pregunta en prosa 3/5, efecto sin nombrar la regla **0/4**. Antes de la búsqueda léxica era 0/15 |
 | Endpoints API | `/api/health` (+ `/ready`), `/api/auth`, `/api/lists`, `/api/battles`, `/api/ask`, `/api/admin/kb/{sync,status,logs}`, `/api/club`, `/api/mesas`, `/api/sesiones`, `/api/mis-reservas`, `/api/cronicas` (+ `/fotos`, `/generar`), `/api/media/cronicas`, `/api/rules` (+ `/sections`, `/:slug`), `/api/items` (+ `/types`, `/:slug`), `/api/units` (+ `/:id`), `/api/kb/{search,stats}`, `/api` (account) |
-| DB tables | `user`, `session`, `account`, `verification`, `lists`, `battles`, `units`, `special_rules`, `magic_items`, `scenarios`, `ingest_log`, `kb_chunks` (+ columna `users.is_admin` en v0.8.0, + `club_info` en v0.9.0, + `mesas`, `sesiones`, `reservas` en v1.0.0, + `cronicas`, `cronica_fotos` en v1.1.0; `units`/`special_rules`/`magic_items` recreadas con taxonomía en texto libre + `name_es`/`description_es` en v1.2.0) |
+| DB tables | `user`, `session`, `account`, `verification`, `lists`, `battles`, `units`, `special_rules`, `magic_items`, `scenarios`, `ingest_log`, `kb_chunks` (+ columna `users.is_admin` en v0.8.0, + `club_info` en v0.9.0, + `mesas`, `sesiones`, `reservas` en v1.0.0, + `cronicas`, `cronica_fotos` en v1.1.0; `units`/`special_rules`/`magic_items` recreadas con taxonomía en texto libre + `name_es`/`description_es` en v1.2.0; `kb_chunks.tsv` generada + índice GIN post-v2.0.0, fuera del journal de Drizzle) |
 | Mirror KB | Volumen `dobleuno-kbdata`. El sync por endpoint no funciona en la imagen de producción (v2.0.0): el corpus se copia al volumen, ver deploy.md |
 | Imagen | Un contenedor sirve API + cliente, mismo origen. Verificada en CI, nunca en un servidor real |
 | Brand kit | 9 piezas de arte en `apps/web/public/brand/` (~17 MB; la copia del portal se retiró en la Ola 11) |

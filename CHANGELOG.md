@@ -18,10 +18,47 @@ Cada versión lista los cambios técnicos. Donde existe, se anida abajo la **bit
 - El traductor detecta `finish_reason: length` y reintenta el lote con un error que dice por qué;
   el batch por defecto baja de 8 a 5 por el mismo motivo.
 
+- **El retrieval del oráculo devolvía ruido: recall@5 pasa de 0/15 a 9/15.** Se buscaba sólo por
+  similitud de vectores y el provider de producción es el "determinístico", un hash de cada palabra
+  a uno de 384 buckets. Escribir literalmente "Killing Blow" no traía `chunk-rule-killing-blow`.
+  Nada fallaba: 200, citas válidas a los chunks equivocados y una respuesta cortés diciendo que no
+  había información suficiente, con los 180 tests del repo en verde. Primero se escribió el medidor
+  (`apps/server/src/eval-retrieval.ts`, 15 preguntas reales, sin gastar LLM) y recién después el
+  arreglo: búsqueda full-text indexada como camino principal (columna `tsv` generada con el título
+  en peso 'A' + índice GIN), con OR entre lexemas porque el AND de `websearch_to_tsquery` exigía que
+  la ficha contuviera también "cómo" y "funciona" y devolvía cero filas. El vector sólo corre si el
+  provider es semántico de verdad, y sin resultado léxico se devuelve vacío en vez de ruido.
+- **El campo `fallback` de `/api/ask` mentía.** Estaba hardcodeado en el `return` de `ask()`, así
+  que decía `pgvector` pasara lo que pasara. Ahora sale del retrieval, que es el único que sabe qué
+  camino corrió, y admite `lexico`. Había un test que fijaba la afirmación falsa.
+- **El corpus "en inglés" tenía las etiquetas en castellano.** `parse-tow.ts` escribía "Alcance",
+  "Fuerza" y "Penetración" en los perfiles de arma de `data/processed/`, que es la columna que la
+  app muestra sin traducción y la que el traductor recibe como original. Se descubrió leyendo 20
+  entradas al azar a ojo después del seed; ningún validador podía verlo.
+- **El traductor no era ejecutable y perdía lotes enteros.** El `.env` vive en `apps/server/` y los
+  scripts están fuera de los workspaces, así que `npm run rules:sync` moría por falta de API key.
+  Y un lote truncado se reintentaba tres veces con el mismo payload —determinísticamente inútil y
+  pago igual— antes de darse por perdido: una corrida de 104 minutos terminó con 384 reglas en
+  inglés adentro del corpus "traducido". Ahora el lote que no entra se parte al medio, y una
+  entrada imposible ya no se lleva puestas a sus hermanas.
+
+### Added
+- **Corpus traducido al español rioplatense**: 1795/1796 reglas y 751/751 items. Las 577 unidades
+  quedan en inglés por diseño —statlines y nombres propios— y `/sobre` lo declara con los números
+  en vez de callarse, que es lo que hacía cuando la traducción funcionaba.
+- **Normalizador de glosario** (`npm run corpus:glosario`, y paso 5/6 del pipeline). La traducción
+  va en lotes independientes, así que una misma regla terminaba con un nombre en su ficha y otro
+  cada vez que otra ficha la citaba: "Flaming Attacks" tenía cinco formas. Ahora tiene una, y las
+  citas coherentes pasaron de 4/31 a 89/93.
+- **Medidor de retrieval** (`apps/server/src/eval-retrieval.ts`): recall@1, recall@5 y MRR sobre 15
+  preguntas reales, desglosado por forma de pregunta. Sin un número, cualquier cambio al retrieval
+  es una opinión.
+
 ### Deuda conocida
-- **El retrieval del oráculo no es semántico.** Verificado punta a punta contra DeepSeek: responde,
-  cita, y trae los chunks equivocados. El provider determinístico es un bag-of-words hasheado. Ver
-  `status-salud.md`.
+- **El oráculo no entiende lo que no sabés nombrar.** Las 4 preguntas del set de eval que describen
+  el efecto sin nombrar la regla siguen en 0/4, y es el techo de lo léxico. Pide un provider de
+  embeddings real; el candidato que no obliga a migrar la columna es un modelo multilingüe local de
+  384 dims. Ver `status-salud.md`.
 
 ---
 
